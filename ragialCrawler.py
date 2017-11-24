@@ -48,69 +48,73 @@ RegexFindItemPrice = re.compile(r'([0-9,]+)z')
 # -------------------- END OF SECTION (4)
 
 # -------------------- 5. SOURCE SECTION
-# Outter loop to keep program running 'forever', daemon-like application (1)
-while True:
-	# Inner Loop here, while it has a 'next' page to search up to (2)
-	rawPageSource = str()
-	try:
-		# Requesting Ragial Iro-Odin costume first page search
-		request = Request(ragialServerLink + query, 
-			headers = myCustomHeader)
-
-		rawPageSource = str(urlopen(request).read())
-
-	except BaseException as exc: 
-		print(colored('Fatal: could not get the source page from Ragial. (error: ' + repr(exc) + ')', 'red'))
-
-	# Start the information data structure. This is where all the information got goes before pandas data.frame
-	gatheredInfo = [[-1] * 6]
-
-	if rawPageSource:
-		# Find the item links, removing the identical ones
-		itemLinkID = set(RegexFindItemURL.findall(rawPageSource))
-
+def main():
+	# Outter loop to keep program running 'forever', daemon-like application (1)
+	while True:
+		# Inner Loop here, while it has a 'next' page to search up to (2)
+		rawPageSource = str()
 		try:
-			for item in itemLinkID:
-				itemRawPageSource = str()
+			# Requesting Ragial Iro-Odin costume first page search
+			request = Request(ragialServerLink + query, 
+				headers = myCustomHeader)
 
-				try:
-					itemRequest = Request('http://ragi.al/item/iRO-Odin/' + item, 
-						headers = myCustomHeader)
+			rawPageSource = str(urlopen(request).read())
 
-					# Get page HTML source code
-					itemRawPageSource = str(urlopen(itemRequest).read())
+		except BaseException as exc: 
+			print(colored('Fatal: could not get the source page from Ragial. (error: ' + repr(exc) + ')', 'red'))
 
-					# Search for the item name on the page HTML source code
-					itemTitle = RegexFindItemTitle.findall(itemRawPageSource)
-					# Seach for all relevant (zeny-based) information on the page HTML source code 
-					values = RegexFindItemPrice.findall(itemRawPageSource)
+		# Start the information data structure. This is where all the information got goes before pandas data.frame
+		gatheredInfo = [[-1] * 6]
 
-					# Append a new information pack about a item
-					gatheredInfo.append([
-						values[scriptInfoOrder.PROPORTION.value],
-						values[scriptInfoOrder.ITEM_NAME.value],
-						values[scriptInfoOrder.MINIMAL_PRICE.value],
-						values[scriptInfoOrder.MIN_SHORT_PERIOD.value],
-						values[scriptInfoOrder.AVG_SHORT_PERIOD.value],
-						values[scriptInfoOrder.MAX_SHORT_PERIOD.value]
-						])
+		if rawPageSource:
+			# Find the item links, removing the identical ones
+			itemLinkID = set(RegexFindItemURL.findall(rawPageSource))
 
-				except BaseException as exc:
-					print(colored('Error on getting', 
-						'\'http://ragi.al/item/iRO-Odin/' + item + '\' (error: ' + repr(exc) + ')', 
-						'data.', 'red'))
+			try:
+				for item in itemLinkID:
+					itemRawPageSource = str()
 
-		except BaseException as exc:
-			print(colored('Error: ' + repr(exc), 'red'))		
+					try:
+						itemRequest = Request('http://ragi.al/item/iRO-Odin/' + item, 
+							headers = myCustomHeader)
 
-		# Move to the next page, and repeat inner loop (2)
+						# Get page HTML source code
+						itemRawPageSource = str(urlopen(itemRequest).read())
 
-	# Now sort the items gathered by its commercial relevance and print all gathered data
-	gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
-	dataFrame = pandas.DataFrame(gatheredInfo)
-	dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Min (7D)', 'Max (7D)']
-	print(dataFrame)
+						# Search for the item name on the page HTML source code
+						itemTitle = RegexFindItemTitle.findall(itemRawPageSource)
+						# Seach for all relevant (zeny-based) information on the page HTML source code 
+						values = RegexFindItemPrice.findall(itemRawPageSource)
 
-	# Make the program 'sleep' for some minutes, to wait Ragial update it's info
-	time.sleep(ragialRefreshTime)
+						# Append a new information pack about a item
+						gatheredInfo.append([
+							values[scriptInfoOrder.PROPORTION.value],
+							values[scriptInfoOrder.ITEM_NAME.value],
+							values[scriptInfoOrder.MINIMAL_PRICE.value],
+							values[scriptInfoOrder.MIN_SHORT_PERIOD.value],
+							values[scriptInfoOrder.AVG_SHORT_PERIOD.value],
+							values[scriptInfoOrder.MAX_SHORT_PERIOD.value]
+							])
+
+					except BaseException as exc:
+						print(colored('Error on getting', 
+							'\'http://ragi.al/item/iRO-Odin/' + item + '\' (error: ' + repr(exc) + ')', 
+							'data.', 'red'))
+
+			except BaseException as exc:
+				print(colored('Error: ' + repr(exc), 'red'))		
+
+			# Move to the next page, and repeat inner loop (2)
+
+		# Now sort the items gathered by its commercial relevance and print all gathered data
+		gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
+		dataFrame = pandas.DataFrame(gatheredInfo)
+		dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Min (7D)', 'Max (7D)']
+		print(dataFrame)
+
+		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
+		time.sleep(ragialRefreshTime)
+
+if __name__ == '__main__':
+	main()
 # -------------------- END OF SECTION (5)
