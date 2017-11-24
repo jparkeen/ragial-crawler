@@ -1,11 +1,11 @@
 # -------------------- 1. IMPORT SECTION
 from urllib.request import Request, urlopen # Necessary to communicate with Ragial
+from operator import itemgetter # To sort the information get
 from termcolor import colored # For good terminal print aesthetics
-from enum import Enum
-import pandas
+from enum import Enum # To keep the code more organized
+import pandas # To print the information get data.frame-like
 import time # Time, to put this daemon to sleep after a refresh
 import re # Regular expressions, to find interesting information
-from operator import itemgetter
 # -------------------- END OF SECTION (1)
 
 # -------------------- 2. CONFIGURATION SECTION
@@ -42,9 +42,9 @@ class scriptInfoOrder(Enum):
 
 # -------------------- 4. REGULAR EXPRESSIONS
 # Regex to search for the item links
-RegexfindItemURL = re.compile(r'http://ragi\.al/item/iRO-Odin/([^"]+)')
-RegexfindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*iRO-Odin\s*</title>')
-RegexfindItemPrice = re.compile(r'([0-9,]+)z')
+RegexFindItemURL = re.compile(r'http://ragi\.al/item/iRO-Odin/([^"]+)')
+RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*iRO-Odin\s*</title>')
+RegexFindItemPrice = re.compile(r'([0-9,]+)z')
 # -------------------- END OF SECTION (4)
 
 # -------------------- 5. SOURCE SECTION
@@ -62,11 +62,12 @@ while True:
 	except BaseException as exc: 
 		print(colored('Fatal: could not get the source page from Ragial. (error: ' + repr(exc) + ')', 'red'))
 
+	# Start the information data structure. This is where all the information got goes before pandas data.frame
 	gatheredInfo = [[-1] * 6]
 
 	if rawPageSource:
 		# Find the item links, removing the identical ones
-		itemLinkID = set(RegexfindItemURL.findall(rawPageSource))
+		itemLinkID = set(RegexFindItemURL.findall(rawPageSource))
 
 		try:
 			for item in itemLinkID:
@@ -80,9 +81,9 @@ while True:
 					itemRawPageSource = str(urlopen(itemRequest).read())
 
 					# Search for the item name on the page HTML source code
-					itemTitle = RegexfindItemTitle.findall(itemRawPageSource)
+					itemTitle = RegexFindItemTitle.findall(itemRawPageSource)
 					# Seach for all relevant (zeny-based) information on the page HTML source code 
-					values = RegexfindItemPrice.findall(itemRawPageSource)
+					values = RegexFindItemPrice.findall(itemRawPageSource)
 
 					# Append a new information pack about a item
 					gatheredInfo.append([
@@ -100,13 +101,12 @@ while True:
 						'data.', 'red'))
 
 		except BaseException as exc:
-			print(colored('Error: ' + repr(exc), 'red'))
-			
-		# Now sort the items gathered by its commercial relevance and print all gathered data
-		gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value))
+			print(colored('Error: ' + repr(exc), 'red'))		
 
 		# Move to the next page, and repeat inner loop (2)
 
+	# Now sort the items gathered by its commercial relevance and print all gathered data
+	gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
 	dataFrame = pandas.DataFrame(gatheredInfo)
 	dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Min (7D)', 'Max (7D)']
 	print(dataFrame)
