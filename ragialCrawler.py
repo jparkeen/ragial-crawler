@@ -15,68 +15,91 @@ import re # Regular expressions, to find interesting information
 # -------------------- END OF SECTION (1)
 
 # -------------------- 2. CONFIGURATION SECTION
-ragialServerLink = 'http://ragi.al/search/iRO-Odin/'
-query = 'costume'
+# These values can be modified to adopt the script to another personal interest.
+# Please note that this is a facilitie, but the script itself was not originally
+# thinked to be this dynamic. This means that deeper modifications on this script 
+# can be necessary, depending on the parameters set on this section. 
+ragialServerLink = 'http://ragi.al/search/iRO-Odin/' # Link to Ragial search section, with server
+query = 'costume' # Query to search for. Default is 'costume'
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 ragialRefreshTime = 600 # This time should be in seconds
+requestDelay = 5.0 # Delay, in seconds, of a delay between each request on Ragial.
+# Note: low values (< 5s) tend to NOT work, resulting on a (Too many requests) 429 error.
 # -------------------- END OF SECTION (2)
 
 # -------------------- 3. ENUMS
+# 3.1 This enumerator reflects the sequence of the information gatehered by the
+# 'RegexFindItemPrice' when used on the Ragial HTML Source Page of a specific item.
 class RagialValueOrder(Enum):
 	# 'Short' is a seven (7) days analysis
-	MIN_SHORT_PERIOD = 0
-	MAX_SHORT_PERIOD = 1
-	AVG_SHORT_PERIOD = 2
-	STDEV_SHORT = 3
+	MIN_SHORT_PERIOD = 0 # Minimum item price on a (7) days analysis
+	MAX_SHORT_PERIOD = 1 # Maximum item price on a (7) days analysis
+	AVG_SHORT_PERIOD = 2 # Average item price on a (7) days analysis
+	STDEV_SHORT = 3	# Standard Devitation of the item price on a (7) days analysis
 	# 'Long' is a twenty eight (28) days analysis
-	MIN_LONG_PERIOD = 4
-	MAX_LONG_PERIOD = 5
-	AVG_LONG_PERIOD = 6
-	STDEV_LONG = 7
+	MIN_LONG_PERIOD = 4 # Minimum item price on a (28) days analysis
+	MAX_LONG_PERIOD = 5 # Maximum item price on a (28) days analysis
+	AVG_LONG_PERIOD = 6 # Average item price on a (28) days analysis
+	STDEV_LONG = 7 # Standard Devitation of the item price on a (28) days analysis
 	# From here, comes the available players prices
-	MINIMAL_PRICE = 8
+	MINIMAL_PRICE = 8 # The best price found on Ragial
 
+# 3.2 This enumerator, to be fair, is pure cosmetic at moment. This indicates the
+# order of the columns used on Pandas's dataframe to print the colected relevant data.
+# In other words, this is useful only for developers orientation.
 class scriptInfoOrder(Enum):
-	PROPORTION = 0
-	ITEM_NAME = 1
-	MIN_CURRENT_PRICE = 2
-	AVG_SHORT = 4
-	
+	PROPORTION = 0 # Proportion calculus is (CurrentBestPrice/ShortAveragePrice - 1)
+	ITEM_NAME = 1 # Self explanatory
+	MIN_CURRENT_PRICE = 2 # Current item best price detected on Ragial
+	AVG_SHORT = 4 # Average item price on a seven (7) days analysis
 # -------------------- END OF SECTION (3)
 
 # -------------------- 4. REGULAR EXPRESSIONS
-# Regex to search for the item links
+# 4.1 Regex to search for the item links
 RegexFindItemURL = re.compile(r'http://ragi\.al/item/iRO-Odin/([^"]+)')
+# 4.2 Regex to search for item's title/name
 RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*iRO-Odin\s*</title>')
+# 4.3 Regex to search for item prices/standard devitations/related values
 RegexFindItemPrice = re.compile(r'([0-9,]+)z')
+# 4.4 Regex to detect for Ragial's next page link on search HTML source code (capturing the exact
+# link is unnecessary, because these follows a very simple predictable pattern).
 RegexFindNextPage = re.compile(r'<a href="' + ragialServerLink + query + '/' + r'\w">Next</a>')
 # -------------------- END OF SECTION (4)
 
 # -------------------- 5. SOURCE SECTION
-# 
-def _getItemName(itemRawPageSource):
+# Applies a Regex to find the item name on a given Raw HTML source code.
+# It does return 'Unknown Item Name' if Regex fails.
+def getItemName(itemRawPageSource):
 	regMatch = RegexFindItemTitle.search(itemRawPageSource)
 	return regMatch.group(1) if regMatch else 'Unknown Item Name'
 
-# 
-def _parseNewItem(itemTitle, itemRawPageSource):
+# Get all economic relevant information on a raw HTML Item source page.
+def parseNewItem(itemTitle, itemRawPageSource):
 	# Seach for all relevant (zeny-based) information on the page HTML source code 
 	values = RegexFindItemPrice.findall(itemRawPageSource)
 	if values:
+		# Remove ',' on the item value strings, and convert to integers (there's no decimal values on Ragnarok prices)
 		for i in range(len(values)):
 			values[i] = values[i].replace(',', '')
 		values = list(map(int, values))
 		
+		# Proportion of the Item Best Price and the Average Price (7 days analysis). Lower values (< 0)
+		# represent best opportunities, while higher (> 0) represent overpriced/price inflated items.
 		proportion = values[RagialValueOrder.MINIMAL_PRICE.value]/values[RagialValueOrder.AVG_SHORT_PERIOD.value] - 1
-		
+ 
 		return [proportion, itemTitle, values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value]]
 	return [-1] * 4
 
-#
+# Produce a combination of Ragial Server's search link + query (costume, by default) + pageIndex
 def _mountQueryLink(pageIndex):
 	return ragialServerLink + query + '/' + str(pageIndex)
 
-# 
+# Set Price Proportions (BestPrice/AveragePrice - 1) output colors
+def setPropColor(props):
+	for i in range(len(props)):
+		props[i] = ('\033[92m' if props[i] < 0 else '\033[91m') + str(props[i]) + '\033[0m'
+	
+# Main method of the script.
 def main():
 	# Outter loop to keep program running 'forever', daemon-like application (1)
 	while True:
@@ -105,13 +128,15 @@ def main():
 			# -------------------- END OF SUBSECTION (5.2)
 
 			if rawPageSource:
+				print(colored('New Ragial item page found (index: ' + str(pageIndex) + ').', 'yellow'))
 				# Find the item links, removing the identical ones
 				itemLinkID = set(RegexFindItemURL.findall(rawPageSource))
 
 				# -------------------- 5.3 GET ITEM ECONOMIC DATA
 				try:
 					for item in itemLinkID:
-						time.sleep(0.25)
+						print(colored('Requesting \'' + item + '\' item data...', 'yellow'))
+						time.sleep(requestDelay)
 						itemRawPageSource = str()
 
 						try:
@@ -122,34 +147,33 @@ def main():
 							itemRawPageSource = str(urlopen(itemRequest).read())
 
 							# Search for the item name on the page HTML source code
-							itemTitle = _getItemName(itemRawPageSource)
+							itemTitle = getItemName(itemRawPageSource)
 
 							# Append a new information pack about a item
-							gatheredInfo.append(_parseNewItem(itemTitle, itemRawPageSource))
-
-							print ('gatheredInfo:', gatheredInfo)
+							gatheredInfo.append(parseNewItem(itemTitle, itemRawPageSource))
 
 						except BaseException as exc:
 							print(colored('Error on getting', 
 								'\'http://ragi.al/item/iRO-Odin/' + item + '\' (error: ' + repr(exc) + ')', 
 								'data.', 'red'))
 
-					# Delay to now overflow Ragial with requests
-					time.sleep(1.0)
-
 					# Move to the next page, and repeat inner loop (2)
 					hasNextPage = RegexFindNextPage.search(rawPageSource) 
+					
+					# Delay to now overflow Ragial with requests
+					time.sleep(requestDelay)
 
 				except BaseException as exc:
 					print(colored('Error: ' + repr(exc), 'red'))
 					hasNextPage = False
 				# -------------------- END OF SUBSECTION (5.3)
-				
+
 		# -------------------- 5.4 PRINT ALL GATHERED INFORMATION
 		# Now sort the items gathered by its commercial relevance and print all gathered data
 		gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
 		dataFrame = pandas.DataFrame(gatheredInfo)
 		dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)']
+		setPropColor(dataFrame['P'])
 		print(dataFrame)
 		# -------------------- END OF SUBSECTION (5.4)
 
