@@ -1,6 +1,12 @@
 # -------------------- 0. INFORMATION
 """
+RagialCrawler is a small Python (3.5.2) script which automatically
+access Ragial (default to iRO-Odin) and uses the Search System, mainly 
+for Costumes queries, and gather useful economic information. 
 
+The original purpose of this script is to summarize all pertinent information 
+about iRO costume economics, bringing a extra facility to people who are actively
+participating on the Ragnarok Costumes market.
 """
 # -------------------- END OF SECTION (0)
 
@@ -24,6 +30,7 @@ query = 'costume' # Query to search for. Default is 'costume'
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 ragialRefreshTime = 600 # This time should be in seconds
 requestDelay = 5.0 # Delay, in seconds, of a delay between each request on Ragial.
+pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
 # Note: low values (< 5s) tend to NOT work, resulting on a (Too many requests) 429 error.
 # -------------------- END OF SECTION (2)
 
@@ -88,16 +95,24 @@ def parseNewItem(itemTitle, itemRawPageSource):
 		proportion = values[RagialValueOrder.MINIMAL_PRICE.value]/values[RagialValueOrder.AVG_SHORT_PERIOD.value] - 1
  
 		return [proportion, itemTitle, values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value]]
-	return [-1] * 4
+	return []
 
 # Produce a combination of Ragial Server's search link + query (costume, by default) + pageIndex
 def _mountQueryLink(pageIndex):
 	return ragialServerLink + query + '/' + str(pageIndex)
 
-# Set Price Proportions (BestPrice/AveragePrice - 1) output colors
-def setPropColor(props):
-	for i in range(len(props)):
-		props[i] = ('\033[92m' if props[i] < 0 else '\033[91m') + str(props[i]) + '\033[0m'
+# Set Price Proportions (BestPrice/AveragePrice - 1) output readable fomart
+def setProportionFormat(proportion):
+	# Pertinent explanations:
+	# '\033[92m' is GREEN COLOR (set if and only if proportion < 0)
+	# '\033[91m' is RED COLOR (alternative color)
+	# '\033[0m'  is FORMATING END
+	# '{0:.2f}' means two decimal points
+
+	# I'm having some trouble setting color at the output, because panda's dataFrame
+	# get confused with the ANSI codes. Still to be fixed later.
+	# return ('\033[92m' if proportion < 0 else '\033[91m') + '{0:.2f}\033[0m'.format(proportion)
+	return '{0:.2f}%'.format(proportion * 100)
 	
 # Main method of the script.
 def main():
@@ -107,7 +122,7 @@ def main():
 		pageIndex = 0
 		hasNextPage = True
 		# Start the information data structure. This is where all the information got goes before pandas data.frame
-		gatheredInfo = [[-1] * 4]
+		gatheredInfo = []
 		# -------------------- END OF SUBSECTION (5.1)
 
 		# Inner Loop here, while it has a 'next' page to search up to (2)
@@ -165,16 +180,22 @@ def main():
 
 				except BaseException as exc:
 					print(colored('Error: ' + repr(exc), 'red'))
-					hasNextPage = False
+					hasNextPage = None
 				# -------------------- END OF SUBSECTION (5.3)
 
 		# -------------------- 5.4 PRINT ALL GATHERED INFORMATION
-		# Now sort the items gathered by its commercial relevance and print all gathered data
-		gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
-		dataFrame = pandas.DataFrame(gatheredInfo)
-		dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)']
-		setPropColor(dataFrame['P'])
-		print(dataFrame)
+		# Remove all null data from the gathered info (probably all empty lists)
+		gatheredInfo = [item for item in gatheredInfo if item]
+		# Check if there is at least a single valid information
+		if gatheredInfo:
+			# Now sort the items gathered by its commercial relevance and print all gathered data
+			gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
+			dataFrame = pandas.DataFrame(gatheredInfo)
+			dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)']
+			dataFrame['P'] = dataFrame['P'].map(setProportionFormat)
+			print(dataFrame)
+		else:
+			print(colored('Warning: no data gathered at all.', 'yellow'))
 		# -------------------- END OF SUBSECTION (5.4)
 
 		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
