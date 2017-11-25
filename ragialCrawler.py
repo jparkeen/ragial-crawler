@@ -13,10 +13,9 @@ participating on the Ragnarok Costumes market.
 # -------------------- 0.2 Improvements to be verified and (if viable) implemented:
 	-1. Print item best price shop coordinates + map name 
 	 0. Check if item are actually at market at momment, and not on previous sales. 
-	 1. Dynamic Programming while requesting item information (to avoid useless requests)
-	 2. Multithreading at requesting item page and next page (caring about not being IP blocked)
-	 3. Official Documentation and usage instructions
-	 4. Colored output
+	 1. Multithreading at requesting item page and next page (caring about not being IP blocked)
+	 2. Official Documentation and usage instructions
+	 3. Colored output
 # -------------------- END OF SUBSECTION (0.2)
 """
 # -------------------- END OF SECTION (0)
@@ -29,6 +28,7 @@ from enum import Enum # To keep the code more organized
 import pandas # To print the information get data.frame-like
 import time # Time, to put this daemon to sleep after a refresh
 import re # Regular expressions, to find interesting information
+import threading # To multithreading power
 # -------------------- END OF SECTION (1)
 
 # -------------------- 2. CONFIGURATION SECTION
@@ -40,14 +40,15 @@ ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section WITH
 serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume'
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
-ragialRefreshTime = 600 # This time should be in seconds
+dataRefreshTime = 600 # This time should be in seconds
 requestDelay = 5.0 # Delay, in seconds, of a delay between each request on Ragial.
 pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
+pandas.set_option('expand_frame_repr', False) # Stop Panda's wrap the printed data frame
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
 # Note: low values (< 5s) tend to NOT work, resulting on a (Too many requests) 429 error.
 # -------------------- END OF SECTION (2)
 
-# -------------------- 3. ENUMS
+# -------------------- 3. CLASSES
 # 3.1 This enumerator reflects the sequence of the information gatehered by the
 # 'RegexFindItemPrice' when used on the Ragial HTML Source Page of a specific item.
 class RagialValueOrder(Enum):
@@ -71,12 +72,20 @@ class scriptInfoOrder(Enum):
 	ITEM_NAME = 1 # Self explanatory
 	MIN_CURRENT_PRICE = 2 # Current item best price detected on Ragial
 	AVG_SHORT = 3 # Average item price on a seven (7) days analysis
+
+# 3.3 Creates a thread to show to the user the remaining time to the next information update
+# Used to follow up the Ragial update delay time. (not synchronized, just a approximation)
+class timeThread(threading.Thread):
+	def __init__(self, delay):
+		threading.Thread.__init__(self)
+		self.delay = delay
+	def run(self):
+		_showRemainingTime(self.delay)
 # -------------------- END OF SECTION (3)
 
 # -------------------- 4. REGULAR EXPRESSIONS
 # 4.1 Regex to search for the item links
-RegexFindItemURLAndBestPrice = re.compile(r'<a href="http://ragi\.al/item/' + serverName + r'/([^"]+)">([0-9,]+z)</a>')
-# RegexFindItemURLAndBestPrice = re.compile(r'http://ragi\.al/item/' + serverName + r'/([^"]+)')
+RegexFindItemURLAndBestPrice = re.compile(r'<a href="http://ragi\.al/item/' + serverName + r'/([^"]+)">([0-9,]+)z</a>')
 # 4.2 Regex to search for item's title/name
 RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*' + serverName + r'\s*</title>')
 # 4.3 Regex to search for item prices/standard devitations/related values
@@ -101,24 +110,6 @@ def calcProportion(bestPrice, avgPrice):
 	return int(RegexOnlyAllowNumbers.sub('', bestPrice))/int(RegexOnlyAllowNumbers.sub('', avgPrice)) - 1
 
 # Get all economic relevant information on a raw HTML Item source page.
-"""
-def parseNewItem(itemTitle, itemRawPageSource):
-	# Seach for all relevant (zeny-based) information on the page HTML source code 
-	values = RegexFindItemPrice.findall(itemRawPageSource)
-	if values:
-		# Remove ',' on the item value strings, and convert to integers (there's no decimal values on Ragnarok prices)
-		for i in range(len(values)):
-			values[i] = values[i].replace(',', '')
-		values = list(map(int, values))
-		
-		# Proportion of the Item Best Price and the Average Price (7 days analysis). Lower values (< 0)
-		# represent best opportunities, while higher (> 0) represent overpriced/price inflated items.
-		proportion = values[RagialValueOrder.MINIMAL_PRICE.value]/values[RagialValueOrder.AVG_SHORT_PERIOD.value] - 1
- 
-		return [proportion, itemTitle, values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value]]
-	return []
-"""
-
 def parseNewItem(itemTitle, itemRawPageSource):
 	# Seach for all relevant (zeny-based) information on the page HTML source code 
 	values = RegexFindItemPrice.findall(itemRawPageSource)
@@ -143,10 +134,26 @@ def setProportionFormat(proportion):
 	# get confused with the ANSI codes. Still to be fixed later.
 	# return ('\033[92m' if proportion < 0 else '\033[91m') + '{0:.2f}\033[0m'.format(proportion)
 	return '{0:.2f}%'.format(proportion * 100)
-	
+
+# Show remaining time to update current data (based on 'dataRefreshTime' configuration paramater)
+def _showRemainingTime(delay):
+	totalDelayLen = len(str(delay))
+	while delay > 0:
+		time.sleep(1)
+		print(colored('\rTime remaining til next update: {message: <{fill}}'.format(message = str(delay), fill = totalDelayLen), 'blue'), end = '')
+		delay -= 1
+	print(colored('\rStarted to get brand-new information...', 'yellow'))
+
 # Main method of the script.
 def main():
+	# Welcome text
+	print(colored('Welcome! I\'m RagialCrawler. First, I\'ll try to collect everything I can from Ragial, if possible. ' +
+		'I\'m supposed to work by myself and take care of everything alone while I\'m still active. ' +
+		'So, from now and so on, you can just chill! ;)', 'blue'))
+	
+	# Memoization base, used to speed up things later.
 	memoizationData = {}
+	
 	# Outter loop to keep program running 'forever', daemon-like application (1)
 	while True:
 		# -------------------- 5.1 VARIABLE SETUP (MODIFY ONLY IF YOU ARE SURE WHAT IS GOING ON)
@@ -230,7 +237,9 @@ def main():
 
 					# Move to the next page, and repeat inner loop (2), if the index max was not still reached
 					if pageIndex < maxRagialSearchPages:
-						hasNextPage = RegexFindNextPage.search(rawPageSource) 
+						# Check if there's a search next page
+						hasNextPage = RegexFindNextPage.search(rawPageSource)
+
 						# Delay to now overflow Ragial with requests
 						time.sleep(requestDelay)
 					else:
@@ -257,9 +266,15 @@ def main():
 		else:
 			print(colored('Warning: no data gathered at all.', 'yellow'))
 		# -------------------- END OF SUBSECTION (5.4)
-
+		
+		# Init a thread to show up the remaining time before the next data update
+		try:
+			timeThread(dataRefreshTime).start()
+		except BaseException as exc:
+			print(colored('Error: failed to init remaining update time thread (' + repr(exc) + ').', 'red'))
+		
 		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
-		time.sleep(ragialRefreshTime)
+		time.sleep(dataRefreshTime)
 
 # SCRIPT START
 if __name__ == '__main__':
