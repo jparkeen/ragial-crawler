@@ -37,12 +37,14 @@ import re # Regular expressions, to find interesting information
 # Please note that this is a facilitie, but the script itself was not originally
 # thinked to be this dynamic. This means that deeper modifications on this script 
 # can be necessary, depending on the parameters set on this section. 
-ragialServerLink = 'http://ragi.al/search/iRO-Odin/' # Link to Ragial search section, with server
+ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section, with server
+serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume'
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 ragialRefreshTime = 600 # This time should be in seconds
 requestDelay = 5.0 # Delay, in seconds, of a delay between each request on Ragial.
 pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
+maxRagialSearchPages = 1 # Max number of search result pages that script must search on
 # Note: low values (< 5s) tend to NOT work, resulting on a (Too many requests) 429 error.
 # -------------------- END OF SECTION (2)
 
@@ -82,7 +84,7 @@ RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*iRO-Odin\
 RegexFindItemPrice = re.compile(r'([0-9,]+)z')
 # 4.4 Regex to detect for Ragial's next page link on search HTML source code (capturing the exact
 # link is unnecessary, because these follows a very simple predictable pattern).
-RegexFindNextPage = re.compile(r'<a href="' + ragialServerLink + query + '/' + r'\w">Next</a>')
+RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/' + query + '/' + r'\w">Next</a>')
 # -------------------- END OF SECTION (4)
 
 # -------------------- 5. SOURCE SECTION
@@ -111,7 +113,7 @@ def parseNewItem(itemTitle, itemRawPageSource):
 
 # Produce a combination of Ragial Server's search link + query (costume, by default) + pageIndex
 def _mountQueryLink(pageIndex):
-	return ragialServerLink + query + '/' + str(pageIndex)
+	return ragialSearchLink + serverName + '/' + query + '/' + str(pageIndex)
 
 # Set Price Proportions (BestPrice/AveragePrice - 1) output readable fomart
 def setProportionFormat(proportion):
@@ -130,10 +132,9 @@ def setProportionFormat(proportion):
 def main():
 	# Outter loop to keep program running 'forever', daemon-like application (1)
 	while True:
-		# -------------------- 5.1 VARIABLE SETUP
+		# -------------------- 5.1 VARIABLE SETUP (MODIFY ONLY IF YOU ARE SURE WHAT IS GOING ON)
 		pageIndex = 0
 		hasNextPage = True
-		# Start the information data structure. This is where all the information got goes before pandas data.frame
 		gatheredInfo = []
 		# -------------------- END OF SUBSECTION (5.1)
 
@@ -184,11 +185,15 @@ def main():
 								'\'http://ragi.al/item/iRO-Odin/' + item + '\' (error: ' + repr(exc) + ')', 
 								'data.', 'red'))
 
-					# Move to the next page, and repeat inner loop (2)
-					hasNextPage = RegexFindNextPage.search(rawPageSource) 
-					
-					# Delay to now overflow Ragial with requests
-					time.sleep(requestDelay)
+					# Move to the next page, and repeat inner loop (2), if the index max was not still reached
+					if pageIndex < maxRagialSearchPages:
+						hasNextPage = RegexFindNextPage.search(rawPageSource) 
+						# Delay to now overflow Ragial with requests
+						time.sleep(requestDelay)
+					else:
+						# Force script inner loop to break
+						hasNextPage = None
+						print(colored('Search page limit reached (' + str(pageIndex) + ').', 'yellow'))
 
 				except BaseException as exc:
 					print(colored('Error: ' + repr(exc), 'red'))
