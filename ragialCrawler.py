@@ -1,5 +1,6 @@
 # -------------------- 0. INFORMATION
 """
+# -------------------- 0.1 BASIC INFO:
 RagialCrawler is a small Python (3.5.2) script which automatically
 access Ragial (default to iRO-Odin) and uses the Search System, mainly 
 for Costumes queries, and gather useful economic information. 
@@ -7,6 +8,17 @@ for Costumes queries, and gather useful economic information.
 The original purpose of this script is to summarize all pertinent information 
 about iRO costume economics, bringing a extra facility to people who are actively
 participating on the Ragnarok Costumes market.
+# -------------------- END OF SUBSECTION (0.1)
+
+# -------------------- 0.2 Improvements to be verified and (if viable) implemented:
+	-1. Print item best price shop coordinates + map name 
+	 0. Check if item are actually at market at momment, and not on previous sales. 
+	 1. Dynamic Programming while requesting item information (to avoid useless requests)
+	 2. Multithreading at requesting item page and next page (caring about not being IP blocked)
+	 3. Official Documentation and usage instructions
+	 4. Improve non iRO-Odin servers script compatibility
+	 5. Colored output
+# -------------------- END OF SUBSECTION (0.2)
 """
 # -------------------- END OF SECTION (0)
 
