@@ -2,7 +2,7 @@
 """
 # -------------------- 0.1 BASIC INFO:
 RagialCrawler is a small Python (3.5.2) script which automatically
-access Ragial (default to iRO-Odin) and uses the Search System, mainly 
+access Ragial, on a specified server, and uses the Search System, mainly 
 for Costumes queries, and gather useful economic information. 
 
 The original purpose of this script is to summarize all pertinent information 
@@ -16,8 +16,7 @@ participating on the Ragnarok Costumes market.
 	 1. Dynamic Programming while requesting item information (to avoid useless requests)
 	 2. Multithreading at requesting item page and next page (caring about not being IP blocked)
 	 3. Official Documentation and usage instructions
-	 4. Improve non iRO-Odin servers script compatibility
-	 5. Colored output
+	 4. Colored output
 # -------------------- END OF SUBSECTION (0.2)
 """
 # -------------------- END OF SECTION (0)
@@ -37,14 +36,14 @@ import re # Regular expressions, to find interesting information
 # Please note that this is a facilitie, but the script itself was not originally
 # thinked to be this dynamic. This means that deeper modifications on this script 
 # can be necessary, depending on the parameters set on this section. 
-ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section, with server
+ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section WITH A ENDING SLASH ('/')
 serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume'
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 ragialRefreshTime = 600 # This time should be in seconds
 requestDelay = 5.0 # Delay, in seconds, of a delay between each request on Ragial.
 pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
-maxRagialSearchPages = 1 # Max number of search result pages that script must search on
+maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
 # Note: low values (< 5s) tend to NOT work, resulting on a (Too many requests) 429 error.
 # -------------------- END OF SECTION (2)
 
@@ -65,26 +64,28 @@ class RagialValueOrder(Enum):
 	# From here, comes the available players prices
 	MINIMAL_PRICE = 8 # The best price found on Ragial
 
-# 3.2 This enumerator, to be fair, is pure cosmetic at moment. This indicates the
-# order of the columns used on Pandas's dataframe to print the colected relevant data.
-# In other words, this is useful only for developers orientation.
+# 3.2 This enumerator indicates the order of the columns used on Pandas's dataframe to 
+# print the colected relevant data.
 class scriptInfoOrder(Enum):
 	PROPORTION = 0 # Proportion calculus is (CurrentBestPrice/ShortAveragePrice - 1)
 	ITEM_NAME = 1 # Self explanatory
 	MIN_CURRENT_PRICE = 2 # Current item best price detected on Ragial
-	AVG_SHORT = 4 # Average item price on a seven (7) days analysis
+	AVG_SHORT = 3 # Average item price on a seven (7) days analysis
 # -------------------- END OF SECTION (3)
 
 # -------------------- 4. REGULAR EXPRESSIONS
 # 4.1 Regex to search for the item links
-RegexFindItemURL = re.compile(r'http://ragi\.al/item/iRO-Odin/([^"]+)')
+RegexFindItemURLAndBestPrice = re.compile(r'<a href="http://ragi\.al/item/' + serverName + r'/([^"]+)">([0-9,]+z)</a>')
+# RegexFindItemURLAndBestPrice = re.compile(r'http://ragi\.al/item/' + serverName + r'/([^"]+)')
 # 4.2 Regex to search for item's title/name
-RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*iRO-Odin\s*</title>')
+RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*' + serverName + r'\s*</title>')
 # 4.3 Regex to search for item prices/standard devitations/related values
 RegexFindItemPrice = re.compile(r'([0-9,]+)z')
 # 4.4 Regex to detect for Ragial's next page link on search HTML source code (capturing the exact
 # link is unnecessary, because these follows a very simple predictable pattern).
 RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/' + query + '/' + r'\w">Next</a>')
+# Detect everything that is not a base 10 number
+RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
 # -------------------- END OF SECTION (4)
 
 # -------------------- 5. SOURCE SECTION
@@ -94,7 +95,13 @@ def getItemName(itemRawPageSource):
 	regMatch = RegexFindItemTitle.search(itemRawPageSource)
 	return regMatch.group(1) if regMatch else 'Unknown Item Name'
 
+# Proportion of the Item Best Price and the Average Price (7 days analysis). Lower values (< 0)
+# represent best opportunities, while higher (> 0) represent overpriced/price inflated items.
+def calcProportion(bestPrice, avgPrice):
+	return int(RegexOnlyAllowNumbers.sub('', bestPrice))/int(RegexOnlyAllowNumbers.sub('', avgPrice)) - 1
+
 # Get all economic relevant information on a raw HTML Item source page.
+"""
 def parseNewItem(itemTitle, itemRawPageSource):
 	# Seach for all relevant (zeny-based) information on the page HTML source code 
 	values = RegexFindItemPrice.findall(itemRawPageSource)
@@ -108,6 +115,15 @@ def parseNewItem(itemTitle, itemRawPageSource):
 		# represent best opportunities, while higher (> 0) represent overpriced/price inflated items.
 		proportion = values[RagialValueOrder.MINIMAL_PRICE.value]/values[RagialValueOrder.AVG_SHORT_PERIOD.value] - 1
  
+		return [proportion, itemTitle, values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value]]
+	return []
+"""
+
+def parseNewItem(itemTitle, itemRawPageSource):
+	# Seach for all relevant (zeny-based) information on the page HTML source code 
+	values = RegexFindItemPrice.findall(itemRawPageSource)
+	if values:
+		proportion = calcProportion(values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value])
 		return [proportion, itemTitle, values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value]]
 	return []
 
@@ -130,6 +146,7 @@ def setProportionFormat(proportion):
 	
 # Main method of the script.
 def main():
+	memoizationData = {}
 	# Outter loop to keep program running 'forever', daemon-like application (1)
 	while True:
 		# -------------------- 5.1 VARIABLE SETUP (MODIFY ONLY IF YOU ARE SURE WHAT IS GOING ON)
@@ -140,12 +157,13 @@ def main():
 
 		# Inner Loop here, while it has a 'next' page to search up to (2)
 		while hasNextPage:
+			hasNextPage = None
 			rawPageSource = str()
 			pageIndex += 1
 			
 			# -------------------- 5.2 REQUEST RAGIAL HTML SOURCE
 			try:
-				# Requesting Ragial Iro-Odin costume first page search
+				# Requesting Ragial Search HTML source
 				request = Request(_mountQueryLink(pageIndex), 
 					headers = myCustomHeader)
 
@@ -157,33 +175,58 @@ def main():
 
 			if rawPageSource:
 				print(colored('New Ragial item page found (index: ' + str(pageIndex) + ').', 'yellow'))
-				# Find the item links, removing the identical ones
-				itemLinkID = set(RegexFindItemURL.findall(rawPageSource))
+				# Find the item links and best Prices (return should be a list of tuples on the format (URL, BestPrice))
+				getSearchResultInfo = RegexFindItemURLAndBestPrice.findall(rawPageSource)
+				itemLinkID = [i[0] for i in getSearchResultInfo] 
+				itemBestPrice = dict(zip(itemLinkID, [i[1] for i in getSearchResultInfo]))
 
 				# -------------------- 5.3 GET ITEM ECONOMIC DATA
 				try:
 					for item in itemLinkID:
-						print(colored('Requesting \'' + item + '\' item data...', 'yellow'))
-						time.sleep(requestDelay)
-						itemRawPageSource = str()
+						if item in memoizationData:
+							print(colored('\'' + item + '\' found on memoization table, updating best price...', 'yellow'))
+							# Item is already on the memoization data structure, don't need to do another page request
+							# Fisrt, get the old data
+							memoItemData = memoizationData[item]
 
-						try:
-							itemRequest = Request('http://ragi.al/item/iRO-Odin/' + item, 
-								headers = myCustomHeader)
+							# Now need just to update the following parameters:
+							#	- a. Best price
+							#	- b. Location (coordinates and map) [to be implemented]
+							# 	- c. Proportion
+							memoItemData[scriptInfoOrder.MIN_CURRENT_PRICE.value] = itemBestPrice[item]
+							memoItemData[scriptInfoOrder.PROPORTION.value] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT.value])
 
-							# Get page HTML source code
-							itemRawPageSource = str(urlopen(itemRequest).read())
+							# Append the updated info on the gathered data list
+							gatheredInfo.append(memoItemData)
+						else:
+							# Item is not on the memoization data structure, then request item's HTML source page
+							print(colored('Requesting \'' + item + '\' item data...', 'yellow'))
+							time.sleep(requestDelay)
+							itemRawPageSource = str()
 
-							# Search for the item name on the page HTML source code
-							itemTitle = getItemName(itemRawPageSource)
+							try:
+								itemRequest = Request('http://ragi.al/item/' + serverName + '/' + item, 
+									headers = myCustomHeader)
 
-							# Append a new information pack about a item
-							gatheredInfo.append(parseNewItem(itemTitle, itemRawPageSource))
+								# Get page HTML source code
+								itemRawPageSource = str(urlopen(itemRequest).read())
 
-						except BaseException as exc:
-							print(colored('Error on getting', 
-								'\'http://ragi.al/item/iRO-Odin/' + item + '\' (error: ' + repr(exc) + ')', 
-								'data.', 'red'))
+								# Search for the item name on the page HTML source code
+								itemTitle = getItemName(itemRawPageSource)
+
+								# Get new item information as a list
+								newItemParsed = parseNewItem(itemTitle, itemRawPageSource)
+
+								# Append a new information pack about a item
+								gatheredInfo.append(newItemParsed)
+
+								# Update the memoization structure in order to make things faster in the next iteration
+								memoizationData.update({item : newItemParsed})
+
+							except BaseException as exc:
+								print(colored('Error on getting', 
+									'\'http://ragi.al/item/' + serverName + '/' + item + '\' (error: ' + repr(exc) + ')', 
+									'data.', 'red'))
 
 					# Move to the next page, and repeat inner loop (2), if the index max was not still reached
 					if pageIndex < maxRagialSearchPages:
