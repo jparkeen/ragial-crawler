@@ -12,12 +12,13 @@ participating on the Ragnarok Costumes market.
 
 # -------------------- 0.2 Improvements to be verified and (if viable) implemented:
 	 0. Check if item are actually at market at momment, and not on previous sales. 
-	 1. Official Documentation and usage instructions
+	 1. Official extern documentation
 # -------------------- END OF SUBSECTION (0.2)
 """
 # -------------------- END OF SECTION (0)
 
 # -------------------- 1. IMPORT SECTION
+
 from urllib.request import Request, urlopen # Necessary to communicate with Ragial
 from operator import itemgetter # To sort the information get
 from colorama import init, Fore # For good terminal print aesthetics
@@ -26,26 +27,31 @@ import pandas # To print the information get data.frame-like
 import time # Time, to put this daemon to sleep after a refresh
 import re # Regular expressions, to find interesting information
 import threading # To multithreading power
+
 # -------------------- END OF SECTION (1)
 
 # -------------------- 2. CONFIGURATION SECTION
+
 # These values can be modified to adopt the script to another personal interest.
 # Please note that this is a facilitie, but the script itself was not originally
 # thinked to be this dynamic. This means that deeper modifications on this script 
 # can be necessary, depending on the parameters set on this section. 
+
 ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section WITH A ENDING SLASH ('/')
 serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume'
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
-dataRefreshTime = 600 # This time should be in seconds
+dataRefreshTime = 300 # This time should be in seconds
 requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
 pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
 pandas.set_option('expand_frame_repr', False) # Stop Panda's wrap the printed data frame
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
 # Note: low values (< 5s) tend to NOT work, resulting on a (Too many requests) 429 error.
+
 # -------------------- END OF SECTION (2)
 
 # -------------------- 3. CLASSES
+
 # 3.1 This enumerator reflects the sequence of the information gatehered by the
 # 'RegexFindItemPrice' when used on the Ragial HTML Source Page of a specific item.
 class RagialValueOrder(Enum):
@@ -54,13 +60,16 @@ class RagialValueOrder(Enum):
 	MAX_SHORT_PERIOD = 1 # Maximum item price on a (7) days analysis
 	AVG_SHORT_PERIOD = 2 # Average item price on a (7) days analysis
 	STDEV_SHORT = 3	# Standard Devitation of the item price on a (7) days analysis
+
 	# 'Long' is a twenty eight (28) days analysis
 	MIN_LONG_PERIOD = 4 # Minimum item price on a (28) days analysis
 	MAX_LONG_PERIOD = 5 # Maximum item price on a (28) days analysis
 	AVG_LONG_PERIOD = 6 # Average item price on a (28) days analysis
 	STDEV_LONG = 7 # Standard Devitation of the item price on a (28) days analysis
+
 	# From here, comes the available players prices
 	MINIMAL_PRICE = 8 # The best price found on Ragial
+	# The next values is the remaining prices, but they aren't useful for this scrip purpose.
 
 # 3.2 This enumerator indicates the order of the columns used on Pandas's dataframe to 
 # print the colected relevant data.
@@ -79,9 +88,11 @@ class timeThread(threading.Thread):
 		self.delay = delay
 	def run(self):
 		_showRemainingTime(self.delay)
+
 # -------------------- END OF SECTION (3)
 
 # -------------------- 4. REGULAR EXPRESSIONS
+
 # 4.1 Regex to search for the item links
 RegexFindItemURLAndBestPrice = re.compile(r'<a href="http://ragi\.al/item/' + serverName + r'/([^"]+)">([0-9,]+)z</a>')
 # 4.2 Regex to search for item's title/name
@@ -93,9 +104,11 @@ RegexFindItemPrice = re.compile(r'([0-9,]+)z')
 RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/' + query + '/' + r'\w">Next</a>')
 # Detect everything that is not a base 10 number
 RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
+
 # -------------------- END OF SECTION (4)
 
 # -------------------- 5. SOURCE SECTION
+
 # Applies a Regex to find the item name on a given Raw HTML source code.
 # It does return 'Unknown Item Name' if Regex fails.
 def getItemName(itemRawPageSource):
@@ -178,8 +191,10 @@ def main():
 				print(Fore.YELLOW + 'New Ragial item page found (index: ' + str(pageIndex) + ').', end = ' ')
 				# Find the item links and best Prices (return should be a list of tuples on the format (URL, BestPrice))
 				getSearchResultInfo = RegexFindItemURLAndBestPrice.findall(rawPageSource)
+				totalItemsFound = len(getSearchResultInfo)
+				currentItemCounter = 0
 
-				print(Fore.YELLOW + 'Total of ' + str(len(getSearchResultInfo)) + ' items on this page.')
+				print(Fore.YELLOW + 'Total of ' + str(totalItemsFound) + ' items on this page.')
 
 				itemLinkID = [i[0] for i in getSearchResultInfo] 
 				itemBestPrice = dict(zip(itemLinkID, [i[1] for i in getSearchResultInfo]))
@@ -187,8 +202,10 @@ def main():
 				# -------------------- 5.3 GET ITEM ECONOMIC DATA
 				try:
 					for item in itemLinkID:
+						currentItemCounter += 1
 						if item in memoizationData:
-							print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price...')
+							print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price (' + 
+								str(currentItemCounter) + '/' + str(totalItemsFound) + ')...', end = ' ')
 							# Item is already on the memoization data structure, don't need to do another page request
 							# Fisrt, get the old data
 							memoItemData = memoizationData[item]
@@ -201,9 +218,14 @@ def main():
 
 							# Append the updated info on the gathered data list
 							gatheredInfo.append(memoItemData)
+							
+							# Print confirmation that everything works fine
+							print(Fore.YELLOW + '[ok]')
+
 						else:
 							# Item is not on the memoization data structure, then request item's HTML source page
-							print(Fore.YELLOW + 'Requesting \'' + item + '\' item data...')
+							print(Fore.YELLOW + 'Requesting \'' + item + '\' item data (' + str(currentItemCounter) + 
+								'/' + str(totalItemsFound) + ')...', end = ' ')
 							time.sleep(requestDelay)
 							itemRawPageSource = str()
 
@@ -229,6 +251,9 @@ def main():
 
 								# Update the memoization structure in order to make things faster in the next iteration
 								memoizationData.update({item : newItemParsed})
+
+								# Print confirmation that everything works fine
+								print(Fore.YELLOW + '[ok]')
 
 							except BaseException as exc:
 								print(Fore.RED + 'Error on getting', 
@@ -278,4 +303,5 @@ def main():
 # SCRIPT START
 if __name__ == '__main__':
 	main()
+
 # -------------------- END OF SECTION (5)
