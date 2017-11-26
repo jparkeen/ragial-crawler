@@ -1,5 +1,5 @@
 # RagialCrawler
-RagialCrawler is a simple Python (version 3.5) script which automatically search all Costumes-like itens on Ragial, more specifically default on the iRO-Odin server (but has easy support to all other Ragial supported servers), and get all relevant economic data from each found item. Then, at the end, it does print all the found items sorted by the proportion of Best Current Price Found and Short (7D) Average Item Price.
+RagialCrawler is a simple Python (version 3.5) script which automatically search all costumes-like items on Ragial default to on iRO-Odin server (but has easy support to all other Ragial supported servers), and get all relevant economic data from each found item. Then, at the end, it does print all the found items sorted by the proportion of Best Current Price Found and Short (7D) Average Item Price.
 
 # Dependencies
 - Python 3.5 or a greater version
@@ -18,7 +18,7 @@ $ python3 ragialCrawler.py
 - The program does not need any input. 
 - It is supposed to run until the user stops it manually (Ctrl+C or killing the process). 
 - If the user ends the program, all memoized data will be lost, and must be regathered on the next session. This will not be 'fixed', as it prevents outdated memoized information.
-- It does update every 10 mins (600 seconds), in order to follow the Ragial update delay and to do not overcharge Ragial server with Requests.
+- It does update every 10 mins (600 seconds), in order to follow the Ragial update delay and to do not overcharge Ragial server with requests.
 - It does check all Ragial search pages.
 - It has a delay of five (5) seconds between each item data request, to avoid (Too Many Requests) 429 error. This delay occurs only on new items not memoized on the current section. If the item is already on the memoization table (i.e already found on previous iterations), it does not need a additional request, and the script only update it's best price and the proportion in relation of average price (7 days analysis), and proceed to the next item without delay.
 - It has a five (5) seconds delay between each next page search request, in order to avoid (Too Many Requests) 429 error on the scenario when all items of the current page are already on the memoization structure.
@@ -30,3 +30,10 @@ The output is a Data Frame, which column order follows the specified order:
 - Best Ragial price at moment
 - Average Price on a seven (7) days analysis
 - Ragial item link
+
+# For future Updates, if they happen
+- Will check if the found item is actually being sold, or is just on the Ragial history
+- Official script extern documentation
+- Colored data frame output
+- And on-the-fly decided features.
+- Or nothing, at all.
