@@ -11,7 +11,6 @@ participating on the Ragnarok Costumes market.
 # -------------------- END OF SUBSECTION (0.1)
 
 # -------------------- 0.2 Improvements to be verified and (if viable) implemented:
-	 0. Check if item are actually at market at momment, and not on previous sales. 
 	 1. Official extern documentation
 # -------------------- END OF SUBSECTION (0.2)
 """
@@ -93,7 +92,9 @@ class timeThread(threading.Thread):
 
 # -------------------- 4. REGULAR EXPRESSIONS
 
-# 4.1 Regex to search for the item links
+# 4.0 Get item URL and it's status (tagged as 'activate_tr' by Ragial for items currently on market)
+RegexFindItemUrlWithStatus = re.compile(r'(?<=<a href="http://ragi\.al/item/' + serverName + r'/)([^"]+)"\s*class\s*=\s*"([^"]+)"\s*>')
+# 4.1 Regex to search for all the item links, active or not on the market
 RegexFindItemURLAndBestPrice = re.compile(r'<a href="http://ragi\.al/item/' + serverName + r'/([^"]+)">([0-9,]+)z</a>')
 # 4.2 Regex to search for item's title/name
 RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*' + serverName + r'\s*</title>')
@@ -191,14 +192,23 @@ def main():
 				print(Fore.YELLOW + 'New Ragial item page found (index: ' + str(pageIndex) + ').', end = ' ')
 				# Find the item links and best Prices (return should be a list of tuples on the format (URL, BestPrice))
 				getSearchResultInfo = RegexFindItemURLAndBestPrice.findall(rawPageSource)
+				
+				# Get item status (Ragial mark items current on market as 'activate_tr') 
+				getItemStatus = dict(RegexFindItemUrlWithStatus.findall(rawPageSource))
+
+				# Get only items current on sale
+				getSearchResultInfo = [i for i in getSearchResultInfo if i[0] in getItemStatus]
+
+				# Tell how many active itens found
 				totalItemsFound = len(getSearchResultInfo)
-				currentItemCounter = 0
+				print(Fore.YELLOW + 'Total of ' + str(totalItemsFound) + ' items in market on this page.')
 
-				print(Fore.YELLOW + 'Total of ' + str(totalItemsFound) + ' items on this page.')
-
+				# Rebase the information in order to work with then easier
 				itemLinkID = [i[0] for i in getSearchResultInfo] 
 				itemBestPrice = dict(zip(itemLinkID, [i[1] for i in getSearchResultInfo]))
 
+				# Interface counter
+				currentItemCounter = 0
 				# -------------------- 5.3 GET ITEM ECONOMIC DATA
 				try:
 					for item in itemLinkID:
@@ -220,7 +230,7 @@ def main():
 							gatheredInfo.append(memoItemData)
 							
 							# Print confirmation that everything works fine
-							print(Fore.YELLOW + '[ok]')
+							print(Fore.YELLOW + '\t[ok]')
 
 						else:
 							# Item is not on the memoization data structure, then request item's HTML source page
