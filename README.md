@@ -3,8 +3,7 @@ RagialCrawler is a simple Python (version 3.5) script which automatically search
 
 # Dependencies
 - Python 3.5 or a greater version
-- 'urllib' library
-- 'termcolor' library
+- 'colorama' library
 - 'pandas' library
 - Other libraries should not be a problem.
 
@@ -31,9 +30,8 @@ The output is a Data Frame, which column order follows the specified order:
 - Average Price on a seven (7) days analysis
 - Ragial item link
 
-# For future Updates, if they happen
+# For future Updates, if they ever happen
 - Will check if the found item is actually being sold, or is just on the Ragial history
 - Official script extern documentation
-- Colored data frame output
 - And on-the-fly decided features.
 - Or nothing, at all.
