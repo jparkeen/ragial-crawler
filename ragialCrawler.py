@@ -12,9 +12,7 @@ participating on the Ragnarok Costumes market.
 
 # -------------------- 0.2 Improvements to be verified and (if viable) implemented:
 	 0. Check if item are actually at market at momment, and not on previous sales. 
-	 1. Multithreading at requesting item page and next page (caring about not being IP blocked)
-	 2. Official Documentation and usage instructions
-	 3. Colored output
+	 1. Official Documentation and usage instructions
 # -------------------- END OF SUBSECTION (0.2)
 """
 # -------------------- END OF SECTION (0)
@@ -22,7 +20,7 @@ participating on the Ragnarok Costumes market.
 # -------------------- 1. IMPORT SECTION
 from urllib.request import Request, urlopen # Necessary to communicate with Ragial
 from operator import itemgetter # To sort the information get
-from termcolor import colored # For good terminal print aesthetics
+from colorama import init, Fore # For good terminal print aesthetics
 from enum import Enum # To keep the code more organized
 import pandas # To print the information get data.frame-like
 import time # Time, to put this daemon to sleep after a refresh
@@ -40,7 +38,7 @@ serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume'
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 dataRefreshTime = 600 # This time should be in seconds
-requestDelay = 5.0 # Delay, in seconds, of a delay between each request on Ragial.
+requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
 pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
 pandas.set_option('expand_frame_repr', False) # Stop Panda's wrap the printed data frame
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
@@ -125,14 +123,7 @@ def _mountQueryLink(pageIndex):
 # Set Price Proportions (BestPrice/AveragePrice - 1) output readable fomart
 def setProportionFormat(proportion):
 	# Pertinent explanations:
-	# '\033[92m' is GREEN COLOR (set if and only if proportion < 0)
-	# '\033[91m' is RED COLOR (alternative color)
-	# '\033[0m'  is FORMATING END
 	# '{0:.2f}' means two decimal points
-
-	# I'm having some trouble setting color at the output, because panda's dataFrame
-	# get confused with the ANSI codes. Still to be fixed later.
-	# return ('\033[92m' if proportion < 0 else '\033[91m') + '{0:.2f}\033[0m'.format(proportion)
 	return '{0:.2f}%'.format(proportion * 100)
 
 # Show remaining time to update current data (based on 'dataRefreshTime' configuration paramater)
@@ -140,16 +131,19 @@ def _showRemainingTime(delay):
 	totalDelayLen = len(str(delay))
 	while delay > 0:
 		time.sleep(1)
-		print(colored('\rTime remaining til next update: {message: <{fill}}'.format(message = str(delay), fill = totalDelayLen), 'blue'), end = '')
+		print(Fore.BLUE + '\rTime remaining til next update: {message: <{fill}}'.format(message = str(delay), fill = totalDelayLen), end = '')
 		delay -= 1
-	print(colored('\rStarted to get brand-new information...', 'yellow'))
+	print(Fore.YELLOW + '\rStarted to get brand-new information...')
 
 # Main method of the script.
 def main():
+	# Init colorama
+	init(autoreset = True)
+
 	# Welcome text
-	print(colored('Welcome! I\'m RagialCrawler. First, I\'ll try to collect everything I can from Ragial, if possible. ' +
+	print(Fore.BLUE + 'Welcome! I\'m RagialCrawler. First, I\'ll try to collect everything I can from Ragial, if possible. ' +
 		'I\'m supposed to work by myself and take care of everything alone while I\'m still active. ' +
-		'So, from now and so on, you can just chill! ;)', 'blue'))
+		'So, from now and so on, you can just chill! ;)')
 	
 	# Memoization base, used to speed up things later.
 	memoizationData = {}
@@ -177,13 +171,16 @@ def main():
 				rawPageSource = str(urlopen(request).read())
 
 			except BaseException as exc: 
-				print(colored('Fatal: could not get the source page from Ragial. (error: ' + repr(exc) + ')', 'red'))
+				print(Fore.RED + 'Fatal: could not get the source page from Ragial. (error: ' + repr(exc) + ')')
 			# -------------------- END OF SUBSECTION (5.2)
 
 			if rawPageSource:
-				print(colored('New Ragial item page found (index: ' + str(pageIndex) + ').', 'yellow'))
+				print(Fore.YELLOW + 'New Ragial item page found (index: ' + str(pageIndex) + ').', end = ' ')
 				# Find the item links and best Prices (return should be a list of tuples on the format (URL, BestPrice))
 				getSearchResultInfo = RegexFindItemURLAndBestPrice.findall(rawPageSource)
+
+				print(Fore.YELLOW + 'Total of ' + str(len(getSearchResultInfo)) + ' items on this page.')
+
 				itemLinkID = [i[0] for i in getSearchResultInfo] 
 				itemBestPrice = dict(zip(itemLinkID, [i[1] for i in getSearchResultInfo]))
 
@@ -191,7 +188,7 @@ def main():
 				try:
 					for item in itemLinkID:
 						if item in memoizationData:
-							print(colored('\'' + item + '\' found on memoization table, updating best price...', 'yellow'))
+							print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price...')
 							# Item is already on the memoization data structure, don't need to do another page request
 							# Fisrt, get the old data
 							memoItemData = memoizationData[item]
@@ -206,7 +203,7 @@ def main():
 							gatheredInfo.append(memoItemData)
 						else:
 							# Item is not on the memoization data structure, then request item's HTML source page
-							print(colored('Requesting \'' + item + '\' item data...', 'yellow'))
+							print(Fore.YELLOW + 'Requesting \'' + item + '\' item data...')
 							time.sleep(requestDelay)
 							itemRawPageSource = str()
 
@@ -234,9 +231,8 @@ def main():
 								memoizationData.update({item : newItemParsed})
 
 							except BaseException as exc:
-								print(colored('Error on getting', 
-									'\'http://ragi.al/item/' + serverName + '/' + item + '\' (error: ' + repr(exc) + ')', 
-									'data.', 'red'))
+								print(Fore.RED + 'Error on getting', 
+									'\'http://ragi.al/item/' + serverName + '/' + item + '\' (error: ' + repr(exc) + ') data.')
 
 					# Move to the next page, and repeat inner loop (2), if the index max was not still reached
 					if pageIndex < maxRagialSearchPages:
@@ -248,10 +244,10 @@ def main():
 					else:
 						# Force script inner loop to break
 						hasNextPage = None
-						print(colored('Search page limit reached (' + str(pageIndex) + ').', 'yellow'))
+						print(Fore.YELLOW + 'Search page limit reached (' + str(pageIndex) + ').')
 
 				except BaseException as exc:
-					print(colored('Error: ' + repr(exc), 'red'))
+					print(Fore.RED + 'Error: ' + repr(exc))
 					hasNextPage = None
 				# -------------------- END OF SUBSECTION (5.3)
 
@@ -267,14 +263,14 @@ def main():
 			dataFrame['P'] = dataFrame['P'].map(setProportionFormat)
 			print(dataFrame)
 		else:
-			print(colored('Warning: no data gathered at all.', 'yellow'))
+			print(Fore.YELLOW + 'Warning: no data gathered at all.')
 		# -------------------- END OF SUBSECTION (5.4)
 		
 		# Init a thread to show up the remaining time before the next data update
 		try:
 			timeThread(dataRefreshTime - 5).start()
 		except BaseException as exc:
-			print(colored('Error: failed to init remaining update time thread (' + repr(exc) + ').', 'red'))
+			print(Fore.RED + 'Error: failed to init remaining update time thread (' + repr(exc) + ').')
 		
 		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
 		time.sleep(dataRefreshTime)
