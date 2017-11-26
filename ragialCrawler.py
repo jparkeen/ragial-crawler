@@ -38,14 +38,14 @@ import threading # To multithreading power
 
 ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section WITH A ENDING SLASH ('/')
 serverName = 'iRO-Odin' # Server name
-query = 'costume' # Query to search for. Default is 'costume'
+query = 'costume' # Query to search for. Default is 'costume', but can be any query like 'card', 'box' etc.
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 dataRefreshTime = 300 # This time should be in seconds
 requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
+# IMPORTANT: low values (< 4.0s) tend to NOT work, resulting on a (Too many requests) 429 error.
 pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
 pandas.set_option('expand_frame_repr', False) # Stop Panda's wrap the printed data frame
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
-# Note: low values (< 5s) tend to NOT work, resulting on a (Too many requests) 429 error.
 
 # -------------------- END OF SECTION (2)
 
@@ -158,7 +158,8 @@ def main():
 	print(Fore.BLUE + 'Welcome! I\'m RagialCrawler. First, I\'ll try to collect everything I can from Ragial, if possible. ' +
 		'I\'m supposed to work by myself and take care of everything alone while I\'m still active. ' +
 		'So, from now and so on, you can just chill! ;)')
-	
+	print(Fore.YELLOW + 'Selected search query: \'' + query + '\'')
+
 	# Memoization base, used to speed up things later.
 	memoizationData = {}
 	
@@ -199,93 +200,95 @@ def main():
 				# Get only items current on sale
 				getSearchResultInfo = [i for i in getSearchResultInfo if i[0] in getItemStatus]
 
-				# Tell how many active itens found
+				# How many active items found on current search page
 				totalItemsFound = len(getSearchResultInfo)
-				print(Fore.YELLOW + 'Total of ' + str(totalItemsFound) + ' items in market on this page.')
 
-				# Rebase the information in order to work with then easier
-				itemLinkID = [i[0] for i in getSearchResultInfo] 
-				itemBestPrice = dict(zip(itemLinkID, [i[1] for i in getSearchResultInfo]))
+				if totalItemsFound <= 0:
+					# Ragial put inactive items to later pages. If no item was found on current page, then
+					# no item will be found on next pages, if they even exists.
+					print(Fore.YELLOW + 'No active items found on this page. Finishing the search process sooner.')
+				else:
+					print(Fore.YELLOW + 'Total of ' + str(totalItemsFound) + ' items in market on this page.')
+					# Rebase the information in order to work with then easier
+					itemLinkID = [i[0] for i in getSearchResultInfo] 
+					itemBestPrice = dict(zip(itemLinkID, [i[1] for i in getSearchResultInfo]))
 
-				# Interface counter
-				currentItemCounter = 0
-				# -------------------- 5.3 GET ITEM ECONOMIC DATA
-				try:
-					for item in itemLinkID:
-						currentItemCounter += 1
-						if item in memoizationData:
-							print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price (' + 
-								str(currentItemCounter) + '/' + str(totalItemsFound) + ')...', end = ' ')
-							# Item is already on the memoization data structure, don't need to do another page request
-							# Fisrt, get the old data
-							memoItemData = memoizationData[item]
+					# Interface counter
+					currentItemCounter = 0
+					# -------------------- 5.3 GET ITEM ECONOMIC DATA
+					try:
+						for item in itemLinkID:
+							currentItemCounter += 1
+							if item in memoizationData:
+								print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price (' + 
+									str(currentItemCounter) + '/' + str(totalItemsFound) + ')...', end = ' ')
+								# Item is already on the memoization data structure, don't need to do another page request
+								# Fisrt, get the old data
+								memoItemData = memoizationData[item]
 
-							# Now need just to update the following parameters:
-							#	- a. Best price
-							# 	- b. Proportion
-							memoItemData[scriptInfoOrder.MIN_CURRENT_PRICE.value] = itemBestPrice[item]
-							memoItemData[scriptInfoOrder.PROPORTION.value] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT.value])
+								# Now need just to update the following parameters:
+								#	- a. Best price
+								# 	- b. Proportion
+								memoItemData[scriptInfoOrder.MIN_CURRENT_PRICE.value] = itemBestPrice[item]
+								memoItemData[scriptInfoOrder.PROPORTION.value] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT.value])
 
-							# Append the updated info on the gathered data list
-							gatheredInfo.append(memoItemData)
-							
-							# Print confirmation that everything works fine
-							print(Fore.YELLOW + '\t[ok]')
-
-						else:
-							# Item is not on the memoization data structure, then request item's HTML source page
-							print(Fore.YELLOW + 'Requesting \'' + item + '\' item data (' + str(currentItemCounter) + 
-								'/' + str(totalItemsFound) + ')...', end = ' ')
-							time.sleep(requestDelay)
-							itemRawPageSource = str()
-
-							try:
-								# Mount full item link and make a requisition to Ragial server
-								fullItemLink = 'http://ragi.al/item/' + serverName + '/' + item
-								itemRequest = Request(fullItemLink, headers = myCustomHeader)
-
-								# Get page HTML source code
-								itemRawPageSource = str(urlopen(itemRequest).read())
-
-								# Search for the item name on the page HTML source code
-								itemTitle = getItemName(itemRawPageSource)
-
-								# Get new item information as a list
-								newItemParsed = parseNewItem(itemTitle, itemRawPageSource)
-
-								# Append the full item link too, for user offer checkup facility
-								newItemParsed.append(fullItemLink)
-
-								# Append a new information pack about a item
-								gatheredInfo.append(newItemParsed)
-
-								# Update the memoization structure in order to make things faster in the next iteration
-								memoizationData.update({item : newItemParsed})
-
+								# Append the updated info on the gathered data list
+								gatheredInfo.append(memoItemData)
+								
 								# Print confirmation that everything works fine
-								print(Fore.YELLOW + '[ok]')
+								print(Fore.YELLOW + '\t[ok]')
 
-							except BaseException as exc:
-								print(Fore.RED + 'Error on getting', 
-									'\'http://ragi.al/item/' + serverName + '/' + item + '\' (error: ' + repr(exc) + ') data.')
+							else:
+								# Item is not on the memoization data structure, then request item's HTML source page
+								print(Fore.YELLOW + 'Requesting \'' + item + '\' item data (' + str(currentItemCounter) + 
+									'/' + str(totalItemsFound) + ')...', end = ' ')
+								time.sleep(requestDelay)
+								itemRawPageSource = str()
 
-					# Move to the next page, and repeat inner loop (2), if the index max was not still reached
-					if pageIndex < maxRagialSearchPages:
-						# Check if there's a search next page
-						hasNextPage = RegexFindNextPage.search(rawPageSource)
+								try:
+									# Mount full item link and make a requisition to Ragial server
+									fullItemLink = 'http://ragi.al/item/' + serverName + '/' + item
+									itemRequest = Request(fullItemLink, headers = myCustomHeader)
 
-						# Delay to now overflow Ragial with requests
-						time.sleep(requestDelay)
-					else:
-						# Force script inner loop to break
-						hasNextPage = None
-						print(Fore.YELLOW + 'Search page limit reached (' + str(pageIndex) + ').')
+									# Get page HTML source code
+									itemRawPageSource = str(urlopen(itemRequest).read())
 
-				except BaseException as exc:
-					print(Fore.RED + 'Error: ' + repr(exc))
-					hasNextPage = None
-				# -------------------- END OF SUBSECTION (5.3)
+									# Search for the item name on the page HTML source code
+									itemTitle = getItemName(itemRawPageSource)
 
+									# Get new item information as a list
+									newItemParsed = parseNewItem(itemTitle, itemRawPageSource)
+
+									# Append the full item link too, for user offer checkup facility
+									newItemParsed.append(fullItemLink)
+
+									# Append a new information pack about a item
+									gatheredInfo.append(newItemParsed)
+
+									# Update the memoization structure in order to make things faster in the next iteration
+									memoizationData.update({item : newItemParsed})
+
+									# Print confirmation that everything works fine
+									print(Fore.YELLOW + '\t[ok]')
+
+								except BaseException as exc:
+									print(Fore.RED + 'Error on getting', 
+										'\'http://ragi.al/item/' + serverName + '/' + item + '\' (error: ' + repr(exc) + ') data.')
+
+						# Move to the next page, and repeat inner loop (2), if the index max was not still reached
+						if pageIndex < maxRagialSearchPages:
+							# Check if there's a search next page
+							hasNextPage = RegexFindNextPage.search(rawPageSource)
+
+							# Delay to now overflow Ragial with requests
+							time.sleep(requestDelay)
+						else:
+							# Force script inner loop to break
+							print(Fore.YELLOW + 'Search page limit reached (' + str(pageIndex) + ').')
+
+					except BaseException as exc:
+						print(Fore.RED + 'Error: ' + repr(exc))
+					# -------------------- END OF SUBSECTION (5.3)
 		# -------------------- 5.4 PRINT ALL GATHERED INFORMATION
 		# Remove all null data from the gathered info (probably all empty lists)
 		gatheredInfo = [item for item in gatheredInfo if item]
