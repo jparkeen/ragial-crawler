@@ -11,7 +11,6 @@ participating on the Ragnarok Costumes market.
 # -------------------- END OF SUBSECTION (0.1)
 
 # -------------------- 0.2 Improvements to be verified and (if viable) implemented:
-	-1. Print item best price shop coordinates + map name 
 	 0. Check if item are actually at market at momment, and not on previous sales. 
 	 1. Multithreading at requesting item page and next page (caring about not being IP blocked)
 	 2. Official Documentation and usage instructions
@@ -72,6 +71,7 @@ class scriptInfoOrder(Enum):
 	ITEM_NAME = 1 # Self explanatory
 	MIN_CURRENT_PRICE = 2 # Current item best price detected on Ragial
 	AVG_SHORT = 3 # Average item price on a seven (7) days analysis
+	ITEM_LINK = 4 # Ragial correspondent item link
 
 # 3.3 Creates a thread to show to the user the remaining time to the next information update
 # Used to follow up the Ragial update delay time. (not synchronized, just a approximation)
@@ -198,8 +198,7 @@ def main():
 
 							# Now need just to update the following parameters:
 							#	- a. Best price
-							#	- b. Location (coordinates and map) [to be implemented]
-							# 	- c. Proportion
+							# 	- b. Proportion
 							memoItemData[scriptInfoOrder.MIN_CURRENT_PRICE.value] = itemBestPrice[item]
 							memoItemData[scriptInfoOrder.PROPORTION.value] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT.value])
 
@@ -212,8 +211,9 @@ def main():
 							itemRawPageSource = str()
 
 							try:
-								itemRequest = Request('http://ragi.al/item/' + serverName + '/' + item, 
-									headers = myCustomHeader)
+								# Mount full item link and make a requisition to Ragial server
+								fullItemLink = 'http://ragi.al/item/' + serverName + '/' + item
+								itemRequest = Request(fullItemLink, headers = myCustomHeader)
 
 								# Get page HTML source code
 								itemRawPageSource = str(urlopen(itemRequest).read())
@@ -223,6 +223,9 @@ def main():
 
 								# Get new item information as a list
 								newItemParsed = parseNewItem(itemTitle, itemRawPageSource)
+
+								# Append the full item link too, for user offer checkup facility
+								newItemParsed.append(fullItemLink)
 
 								# Append a new information pack about a item
 								gatheredInfo.append(newItemParsed)
@@ -260,7 +263,7 @@ def main():
 			# Now sort the items gathered by its commercial relevance and print all gathered data
 			gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
 			dataFrame = pandas.DataFrame(gatheredInfo)
-			dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)']
+			dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Item Link']
 			dataFrame['P'] = dataFrame['P'].map(setProportionFormat)
 			print(dataFrame)
 		else:
@@ -269,7 +272,7 @@ def main():
 		
 		# Init a thread to show up the remaining time before the next data update
 		try:
-			timeThread(dataRefreshTime).start()
+			timeThread(dataRefreshTime - 5).start()
 		except BaseException as exc:
 			print(colored('Error: failed to init remaining update time thread (' + repr(exc) + ').', 'red'))
 		
