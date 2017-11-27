@@ -1,6 +1,5 @@
 # -------------------- 0. INFORMATION
 """
-# -------------------- 0.1 BASIC INFO:
 RagialCrawler is a small Python (3.5.2) script which automatically
 access Ragial, on a specified server, and uses the Search System, mainly
 for Costumes queries, and gather useful economic information.
@@ -8,14 +7,7 @@ for Costumes queries, and gather useful economic information.
 The original purpose of this script is to summarize all pertinent information
 about iRO costume economics, bringing a extra facility to people who are actively
 participating on the Ragnarok Costumes market.
-# -------------------- END OF SUBSECTION (0.1)
-
-# -------------------- 0.2 Improvements to be verified and (if viable) implemented:
-	 1. Official extern documentation
-# -------------------- END OF SUBSECTION (0.2)
 """
-# -------------------- END OF SECTION (0)
-
 # -------------------- 1. IMPORT SECTION
 
 from urllib.request import Request, urlopen # Necessary to communicate with Ragial
@@ -24,7 +16,6 @@ from colorama import init, Fore # For good terminal print aesthetics
 from enum import IntEnum # To keep the code more organized
 import time # Time, to put this daemon to sleep after a refresh
 import re # Regular expressions, to find interesting information
-import threading # To multithreading power
 
 # -------------------- END OF SECTION (1)
 
@@ -76,15 +67,6 @@ class scriptInfoOrder(IntEnum):
 	MIN_CURRENT_PRICE = 2 # Current item best price detected on Ragial
 	AVG_SHORT = 3 # Average item price on a seven (7) days analysis
 	ITEM_LINK = 4 # Ragial correspondent item link
-
-# 3.3 Creates a thread to show to the user the remaining time to the next information update
-# Used to follow up the Ragial update delay time. (not synchronized, just a approximation)
-class timeThread(threading.Thread):
-	def __init__(self, delay):
-		threading.Thread.__init__(self)
-		self.delay = delay
-	def run(self):
-		_showRemainingTime(self.delay)
 
 # -------------------- END OF SECTION (3)
 
@@ -169,15 +151,6 @@ def printTable(data, colnames, sep = 3):
 			_rightAlign(maxLens[scriptInfoOrder.ITEM_LINK], d[scriptInfoOrder.ITEM_LINK], sep),
 			)
 		counter += 1
-
-# Show remaining time to update current data (based on 'dataRefreshTime' configuration paramater)
-def _showRemainingTime(delay):
-	totalDelayLen = len(str(delay))
-	while delay > 0:
-		time.sleep(1)
-		print(Fore.BLUE + '\rTime remaining til next update: {message: <{fill}}'.format(message = str(delay), fill = totalDelayLen), end = '')
-		delay -= 1
-	print(Fore.YELLOW + '\rStarted to get brand-new information...')
 
 # Main method of the script.
 def main():
@@ -330,14 +303,10 @@ def main():
 			print(Fore.YELLOW + 'Warning: no data gathered at all.')
 		# -------------------- END OF SUBSECTION (5.4)
 
-		# Init a thread to show up the remaining time before the next data update
-		try:
-			timeThread(dataRefreshTime - 5).start()
-		except BaseException as exc:
-			print(Fore.RED + 'Error: failed to init remaining update time thread (' + repr(exc) + ').')
-
 		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
+		print(Fore.BLUE + 'Time til next data refresh: ' + str(dataRefreshTime) + 's')
 		time.sleep(dataRefreshTime)
+		print(Fore.YELLOW + 'Started to get brand-new information...')
 
 # SCRIPT START
 if __name__ == '__main__':
