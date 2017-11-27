@@ -2,10 +2,10 @@
 """
 # -------------------- 0.1 BASIC INFO:
 RagialCrawler is a small Python (3.5.2) script which automatically
-access Ragial, on a specified server, and uses the Search System, mainly 
-for Costumes queries, and gather useful economic information. 
+access Ragial, on a specified server, and uses the Search System, mainly
+for Costumes queries, and gather useful economic information.
 
-The original purpose of this script is to summarize all pertinent information 
+The original purpose of this script is to summarize all pertinent information
 about iRO costume economics, bringing a extra facility to people who are actively
 participating on the Ragnarok Costumes market.
 # -------------------- END OF SUBSECTION (0.1)
@@ -22,7 +22,6 @@ from urllib.request import Request, urlopen # Necessary to communicate with Ragi
 from operator import itemgetter # To sort the information get
 from colorama import init, Fore # For good terminal print aesthetics
 from enum import IntEnum # To keep the code more organized
-import pandas # To print the information get data.frame-like
 import time # Time, to put this daemon to sleep after a refresh
 import re # Regular expressions, to find interesting information
 import threading # To multithreading power
@@ -33,8 +32,8 @@ import threading # To multithreading power
 
 # These values can be modified to adopt the script to another personal interest.
 # Please note that this is a facilitie, but the script itself was not originally
-# thinked to be this dynamic. This means that deeper modifications on this script 
-# can be necessary, depending on the parameters set on this section. 
+# thinked to be this dynamic. This means that deeper modifications on this script
+# can be necessary, depending on the parameters set on this section.
 
 ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section WITH A ENDING SLASH ('/')
 serverName = 'iRO-Odin' # Server name
@@ -43,8 +42,6 @@ myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 dataRefreshTime = 300 # This time should be in seconds
 requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
 # IMPORTANT: low values (< 4.0s) tend to NOT work, resulting on a (Too many requests) 429 error.
-pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
-pandas.set_option('expand_frame_repr', False) # Stop Panda's wrap the printed data frame
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
 colNames = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Item Link'] # Output column names
 
@@ -71,7 +68,7 @@ class RagialValueOrder(IntEnum):
 	MINIMAL_PRICE = 8 # The best price found on Ragial
 	# The next values is the remaining prices, but they aren't useful for this scrip purpose.
 
-# 3.2 This enumerator indicates the order of the columns used on Pandas's dataframe to 
+# 3.2 This enumerator indicates the order of the columns used on Pandas's dataframe to
 # print the colected relevant data.
 class scriptInfoOrder(IntEnum):
 	PROPORTION = 0 # Proportion calculus is (CurrentBestPrice/ShortAveragePrice - 1)
@@ -124,7 +121,7 @@ def calcProportion(bestPrice, avgPrice):
 
 # Get all economic relevant information on a raw HTML Item source page.
 def parseNewItem(itemTitle, itemRawPageSource):
-	# Seach for all relevant (zeny-based) information on the page HTML source code 
+	# Seach for all relevant (zeny-based) information on the page HTML source code
 	values = RegexFindItemPrice.findall(itemRawPageSource)
 	if values:
 		proportion = calcProportion(values[RagialValueOrder.MINIMAL_PRICE], values[RagialValueOrder.AVG_SHORT_PERIOD])
@@ -164,7 +161,7 @@ def printTable(data, colnames, sep = 3):
 	data.sort(key = itemgetter(scriptInfoOrder.PROPORTION), reverse = True)
 	counter = 0
 	for d in data:
-		print(counter, 
+		print(counter,
 			_setPropColor(d[scriptInfoOrder.PROPORTION], _rightAlign(maxLens[scriptInfoOrder.PROPORTION], _propToPercent(d[scriptInfoOrder.PROPORTION]), sep)),
 			_rightAlign(maxLens[scriptInfoOrder.ITEM_NAME], d[scriptInfoOrder.ITEM_NAME], sep),
 			_rightAlign(maxLens[scriptInfoOrder.MIN_CURRENT_PRICE], d[scriptInfoOrder.MIN_CURRENT_PRICE], sep),
@@ -195,7 +192,7 @@ def main():
 
 	# Memoization base, used to speed up things later.
 	memoizationData = {}
-	
+
 	# Outter loop to keep program running 'forever', daemon-like application (1)
 	while True:
 		# -------------------- 5.1 VARIABLE SETUP (MODIFY ONLY IF YOU ARE SURE WHAT IS GOING ON)
@@ -209,16 +206,16 @@ def main():
 			hasNextPage = None
 			rawPageSource = str()
 			pageIndex += 1
-			
+
 			# -------------------- 5.2 REQUEST RAGIAL HTML SOURCE
 			try:
 				# Requesting Ragial Search HTML source
-				request = Request(_mountQueryLink(pageIndex), 
+				request = Request(_mountQueryLink(pageIndex),
 					headers = myCustomHeader)
 
 				rawPageSource = str(urlopen(request).read())
 
-			except BaseException as exc: 
+			except BaseException as exc:
 				print(Fore.RED + 'Fatal: could not get the source page from Ragial. (error: ' + repr(exc) + ')')
 			# -------------------- END OF SUBSECTION (5.2)
 
@@ -226,8 +223,8 @@ def main():
 				print(Fore.YELLOW + 'New Ragial item page found (index: ' + str(pageIndex) + ').', end = ' ')
 				# Find the item links and best Prices (return should be a list of tuples on the format (URL, BestPrice))
 				getSearchResultInfo = RegexFindItemURLAndBestPrice.findall(rawPageSource)
-				
-				# Get item status (Ragial mark items current on market as 'activate_tr') 
+
+				# Get item status (Ragial mark items current on market as 'activate_tr')
 				getItemStatus = dict(RegexFindItemUrlWithStatus.findall(rawPageSource))
 
 				# Get only items current on sale
@@ -243,7 +240,7 @@ def main():
 				else:
 					print(Fore.YELLOW + 'Total of ' + str(totalItemsFound) + ' items in market on this page.')
 					# Rebase the information in order to work with then easier
-					itemLinkID = [i[0] for i in getSearchResultInfo] 
+					itemLinkID = [i[0] for i in getSearchResultInfo]
 					itemBestPrice = dict(zip(itemLinkID, [i[1] for i in getSearchResultInfo]))
 
 					# Interface counter
@@ -253,7 +250,7 @@ def main():
 						for item in itemLinkID:
 							currentItemCounter += 1
 							if item in memoizationData:
-								print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price (' + 
+								print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price (' +
 									str(currentItemCounter) + '/' + str(totalItemsFound) + ')...', end = ' ')
 								# Item is already on the memoization data structure, don't need to do another page request
 								# Fisrt, get the old data
@@ -267,13 +264,13 @@ def main():
 
 								# Append the updated info on the gathered data list
 								gatheredInfo.append(memoItemData)
-								
+
 								# Print confirmation that everything works fine
 								print(Fore.YELLOW + '\t[ok]')
 
 							else:
 								# Item is not on the memoization data structure, then request item's HTML source page
-								print(Fore.YELLOW + 'Requesting \'' + item + '\' item data (' + str(currentItemCounter) + 
+								print(Fore.YELLOW + 'Requesting \'' + item + '\' item data (' + str(currentItemCounter) +
 									'/' + str(totalItemsFound) + ')...', end = ' ')
 								time.sleep(requestDelay)
 								itemRawPageSource = str()
@@ -305,7 +302,7 @@ def main():
 									print(Fore.YELLOW + '\t[ok]')
 
 								except BaseException as exc:
-									print(Fore.RED + 'Error on getting', 
+									print(Fore.RED + 'Error on getting',
 										'\'http://ragi.al/item/' + serverName + '/' + item + '\' (error: ' + repr(exc) + ') data.')
 
 						# Move to the next page, and repeat inner loop (2), if the index max was not still reached
@@ -332,13 +329,13 @@ def main():
 		else:
 			print(Fore.YELLOW + 'Warning: no data gathered at all.')
 		# -------------------- END OF SUBSECTION (5.4)
-		
+
 		# Init a thread to show up the remaining time before the next data update
 		try:
 			timeThread(dataRefreshTime - 5).start()
 		except BaseException as exc:
 			print(Fore.RED + 'Error: failed to init remaining update time thread (' + repr(exc) + ').')
-		
+
 		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
 		time.sleep(dataRefreshTime)
 
