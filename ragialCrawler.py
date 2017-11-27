@@ -159,7 +159,7 @@ def printTable(data, colnames, sep = 3):
 			_rightAlign(maxLens[scriptInfoOrder.ITEM_LINK], d[scriptInfoOrder.ITEM_LINK], sep),
 			)
 		if d[scriptInfoOrder.PROPORTION] < interestThreshold:
-			print('@', d[scriptInfoOrder.SHOP_URL], d[scriptInfoOrder.SHOP_NAME], d[scriptInfoOrder.SHOP_COORD])
+			print('@', d[scriptInfoOrder.SHOP_COORD], '-', d[scriptInfoOrder.SHOP_NAME], '-', d[scriptInfoOrder.SHOP_URL])
 		counter += 1
 
 # Request a specific item's best sale coordinates, shop name and URL 
