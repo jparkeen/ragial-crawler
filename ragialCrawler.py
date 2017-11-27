@@ -38,6 +38,7 @@ maxRagialSearchPages = 99 # Max number of search result pages that script must g
 interestThreshold = -0.2 # Threshold of proportion, in order to print shop information alongside the item if prop is smaller than it
 removeQueryOnItemName = True # Remove the query at the item name, in order to output be more clean
 appendFullLink = False # Should the entire item URL be appended on the table, or just the ID code?
+maxShopNameDisplay = 30 # Helps mantaining the output order against unnecessary long shop names
 colNames = ['P', 'Name', 'Best Price', 'Avg (7D)', 'Link', 'Coord', 'Shop Name'] # Output column names
 
 # -------------------- END OF SECTION (2)
@@ -149,6 +150,8 @@ def printTable(data, colnames, sep = 2):
 			else:
 				maxLens[i] = max(maxLens[i], 1 + len(str(round(d[i] * 100, 2))))
 
+	maxLens[scriptInfoOrder.SHOP_NAME] = min(maxLens[scriptInfoOrder.SHOP_NAME], maxShopNameDisplay)
+
 	lenColNum = len(str(len(data)))
 
 	print('{text: <{fill}}'.format(text = '', fill = lenColNum - 1), end = '# ')
@@ -167,7 +170,7 @@ def printTable(data, colnames, sep = 2):
 			_rightAlign(maxLens[scriptInfoOrder.AVG_SHORT], d[scriptInfoOrder.AVG_SHORT], sep),
 			_rightAlign(maxLens[scriptInfoOrder.ITEM_LINK], d[scriptInfoOrder.ITEM_LINK], sep),
 			_rightAlign(maxLens[scriptInfoOrder.SHOP_COORD], d[scriptInfoOrder.SHOP_COORD], sep),
-			Fore.MAGENTA + _rightAlign(maxLens[scriptInfoOrder.SHOP_NAME], d[scriptInfoOrder.SHOP_NAME], sep) + Fore.RESET)
+			Fore.MAGENTA + _rightAlign(maxLens[scriptInfoOrder.SHOP_NAME], d[scriptInfoOrder.SHOP_NAME][:(1 + maxShopNameDisplay)], sep) + Fore.RESET)
 		counter += 1
 
 # Request a specific item's best sale coordinates, shop name and URL 
@@ -182,7 +185,7 @@ def _requestItemCoordinates(item):
 		request = Request(ragialItemMarketLink + serverName + '/' + item, headers = myCustomHeader)
 		bestPriceShop = RegexGetItemShopCoord.search(urlopen(request).read())
 		if bestPriceShop:
-			return reversed([i.decode(encoding = 'utf-8') for i in bestPriceShop.groups()])
+			return list(reversed([i.decode(encoding = 'utf-8') for i in bestPriceShop.groups()]))
 		return errorValues
 	except:
 		return errorValues
