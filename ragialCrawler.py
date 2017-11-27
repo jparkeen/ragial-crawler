@@ -21,7 +21,7 @@ participating on the Ragnarok Costumes market.
 from urllib.request import Request, urlopen # Necessary to communicate with Ragial
 from operator import itemgetter # To sort the information get
 from colorama import init, Fore # For good terminal print aesthetics
-from enum import Enum # To keep the code more organized
+from enum import IntEnum # To keep the code more organized
 import pandas # To print the information get data.frame-like
 import time # Time, to put this daemon to sleep after a refresh
 import re # Regular expressions, to find interesting information
@@ -46,6 +46,7 @@ requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragia
 pandas.options.display.max_rows = 999 # Maximum rows while printing the gathered information
 pandas.set_option('expand_frame_repr', False) # Stop Panda's wrap the printed data frame
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
+colNames = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Item Link'] # Output column names
 
 # -------------------- END OF SECTION (2)
 
@@ -53,7 +54,7 @@ maxRagialSearchPages = 99 # Max number of search result pages that script must g
 
 # 3.1 This enumerator reflects the sequence of the information gatehered by the
 # 'RegexFindItemPrice' when used on the Ragial HTML Source Page of a specific item.
-class RagialValueOrder(Enum):
+class RagialValueOrder(IntEnum):
 	# 'Short' is a seven (7) days analysis
 	MIN_SHORT_PERIOD = 0 # Minimum item price on a (7) days analysis
 	MAX_SHORT_PERIOD = 1 # Maximum item price on a (7) days analysis
@@ -72,7 +73,7 @@ class RagialValueOrder(Enum):
 
 # 3.2 This enumerator indicates the order of the columns used on Pandas's dataframe to 
 # print the colected relevant data.
-class scriptInfoOrder(Enum):
+class scriptInfoOrder(IntEnum):
 	PROPORTION = 0 # Proportion calculus is (CurrentBestPrice/ShortAveragePrice - 1)
 	ITEM_NAME = 1 # Self explanatory
 	MIN_CURRENT_PRICE = 2 # Current item best price detected on Ragial
@@ -126,8 +127,8 @@ def parseNewItem(itemTitle, itemRawPageSource):
 	# Seach for all relevant (zeny-based) information on the page HTML source code 
 	values = RegexFindItemPrice.findall(itemRawPageSource)
 	if values:
-		proportion = calcProportion(values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value])
-		return [proportion, itemTitle, values[RagialValueOrder.MINIMAL_PRICE.value], values[RagialValueOrder.AVG_SHORT_PERIOD.value]]
+		proportion = calcProportion(values[RagialValueOrder.MINIMAL_PRICE], values[RagialValueOrder.AVG_SHORT_PERIOD])
+		return [proportion, itemTitle, values[RagialValueOrder.MINIMAL_PRICE], values[RagialValueOrder.AVG_SHORT_PERIOD]]
 	return []
 
 # Produce a combination of Ragial Server's search link + query (costume, by default) + pageIndex
@@ -135,10 +136,42 @@ def _mountQueryLink(pageIndex):
 	return ragialSearchLink + serverName + '/' + query + '/' + str(pageIndex)
 
 # Set Price Proportions (BestPrice/AveragePrice - 1) output readable fomart
-def setProportionFormat(proportion):
-	# Pertinent explanations:
-	# '{0:.2f}' means two decimal points
-	return '{0:.2f}%'.format(proportion * 100)
+def _propToPercent(prop = 0.0):
+	return ('+' if prop >= 0 else '') + '{0:.2f}%'.format(prop * 100)
+
+# Align output data do the right (pandas-style)
+def _rightAlign(maxVal, text, sep = 0):
+	return '{m: <{fill}}'.format(m = '', fill = sep + maxVal - len(text)) + text
+
+# Set color to the proportion values (green only if < 0, red otherwise)
+def _setPropColor(val, text):
+	return ('\033[0;32m' if val < 0 else '\033[0;31m') + text + '\033[0m'
+
+# Print all gathered data
+def printTable(data, colnames, sep = 3):
+	maxLens = [0] * len(scriptInfoOrder)
+
+	for d in data:
+		for i in range(len(scriptInfoOrder)):
+			maxLens[i] = max(maxLens[i], len(str(d[i])))
+
+	print('#', end = ' ')
+	for i in range(len(colnames)):
+		maxLens[i] = max(maxLens[i], len(colnames[i]))
+		print(_rightAlign(maxLens[i], colnames[i], sep), end = ' ')
+	print()
+
+	data.sort(key = itemgetter(scriptInfoOrder.PROPORTION), reverse = True)
+	counter = 0
+	for d in data:
+		print(counter, 
+			_setPropColor(d[scriptInfoOrder.PROPORTION], _rightAlign(maxLens[scriptInfoOrder.PROPORTION], _propToPercent(d[scriptInfoOrder.PROPORTION]), sep)),
+			_rightAlign(maxLens[scriptInfoOrder.ITEM_NAME], d[scriptInfoOrder.ITEM_NAME], sep),
+			_rightAlign(maxLens[scriptInfoOrder.MIN_CURRENT_PRICE], d[scriptInfoOrder.MIN_CURRENT_PRICE], sep),
+			_rightAlign(maxLens[scriptInfoOrder.AVG_SHORT], d[scriptInfoOrder.AVG_SHORT], sep),
+			_rightAlign(maxLens[scriptInfoOrder.ITEM_LINK], d[scriptInfoOrder.ITEM_LINK], sep),
+			)
+		counter += 1
 
 # Show remaining time to update current data (based on 'dataRefreshTime' configuration paramater)
 def _showRemainingTime(delay):
@@ -229,8 +262,8 @@ def main():
 								# Now need just to update the following parameters:
 								#	- a. Best price
 								# 	- b. Proportion
-								memoItemData[scriptInfoOrder.MIN_CURRENT_PRICE.value] = itemBestPrice[item]
-								memoItemData[scriptInfoOrder.PROPORTION.value] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT.value])
+								memoItemData[scriptInfoOrder.MIN_CURRENT_PRICE] = itemBestPrice[item]
+								memoItemData[scriptInfoOrder.PROPORTION] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT])
 
 								# Append the updated info on the gathered data list
 								gatheredInfo.append(memoItemData)
@@ -294,12 +327,8 @@ def main():
 		gatheredInfo = [item for item in gatheredInfo if item]
 		# Check if there is at least a single valid information
 		if gatheredInfo:
-			# Now sort the items gathered by its commercial relevance and print all gathered data
-			gatheredInfo.sort(key = itemgetter(scriptInfoOrder.PROPORTION.value), reverse = True)
-			dataFrame = pandas.DataFrame(gatheredInfo)
-			dataFrame.columns = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Item Link']
-			dataFrame['P'] = dataFrame['P'].map(setProportionFormat)
-			print(dataFrame)
+			# Print all gathered data
+			printTable(gatheredInfo, colNames)
 		else:
 			print(Fore.YELLOW + 'Warning: no data gathered at all.')
 		# -------------------- END OF SUBSECTION (5.4)

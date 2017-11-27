@@ -4,7 +4,6 @@ RagialCrawler is a simple Python (version 3.5) script which automatically search
 # Dependencies
 - Python 3.5 or a greater version
 - 'colorama' library
-- 'pandas' library
 - Other libraries should not be a problem.
 
 # Run
