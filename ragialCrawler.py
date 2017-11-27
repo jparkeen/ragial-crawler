@@ -27,6 +27,7 @@ import re # Regular expressions, to find interesting information
 # can be necessary, depending on the parameters set on this section.
 
 ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section WITH A ENDING SLASH ('/')
+ragialItemMarketLink = 'http://ragi.al/live_reqo/' # Link of Ragial item shops info WITH A ENDING SLASH
 serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume', but can be any query like 'card', 'box' etc.
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
@@ -34,6 +35,7 @@ dataRefreshTime = 300 # This time should be in seconds
 requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
 # IMPORTANT: low values (< 4.0s) tend to NOT work, resulting on a (Too many requests) 429 error.
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
+interestThreshold = 0.0 # Threshold of proportion, in order to print shop information alongside the item if prop is smaller than it
 colNames = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Item Link'] # Output column names
 
 # -------------------- END OF SECTION (2)
@@ -67,6 +69,10 @@ class scriptInfoOrder(IntEnum):
 	MIN_CURRENT_PRICE = 2 # Current item best price detected on Ragial
 	AVG_SHORT = 3 # Average item price on a seven (7) days analysis
 	ITEM_LINK = 4 # Ragial correspondent item link
+	# Parameters valid only for items with proportion below interestThreshold
+	SHOP_URL = 5
+	SHOP_NAME = 6
+	SHOP_COORD = 7
 
 # -------------------- END OF SECTION (3)
 
@@ -83,8 +89,10 @@ RegexFindItemPrice = re.compile(r'([0-9,]+)z')
 # 4.4 Regex to detect for Ragial's next page link on search HTML source code (capturing the exact
 # link is unnecessary, because these follows a very simple predictable pattern).
 RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/' + query + '/' + r'\w">Next</a>')
-# Detect everything that is not a base 10 number
+# 4.5 Detect everything that is not a base 10 number
 RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
+# 4.6 Get item best price shop name, shop url and exact coordinates
+RegexGetItemShopCoord = re.compile(b'<a href="([^"]+)">\s*<[^>]+>\s*([^<]*)\s*</a>\s*<[^>]+>\s*([^<]*)\s*</div>')
 
 # -------------------- END OF SECTION (4)
 
@@ -150,7 +158,19 @@ def printTable(data, colnames, sep = 3):
 			_rightAlign(maxLens[scriptInfoOrder.AVG_SHORT], d[scriptInfoOrder.AVG_SHORT], sep),
 			_rightAlign(maxLens[scriptInfoOrder.ITEM_LINK], d[scriptInfoOrder.ITEM_LINK], sep),
 			)
+		if d[scriptInfoOrder.PROPORTION] < interestThreshold:
+			print('@', d[scriptInfoOrder.SHOP_URL], d[scriptInfoOrder.SHOP_NAME], d[scriptInfoOrder.SHOP_COORD])
 		counter += 1
+
+# Request a specific item's best sale coordinates, shop name and URL 
+def requestItemCoordinates(item):
+	# Safe request delay
+	time.sleep(1)
+	request = Request(ragialItemMarketLink + serverName + '/' + item, headers = myCustomHeader)
+	if request:
+		bestPriceShop = RegexGetItemShopCoord.search(urlopen(request).read())
+		return [i.decode(encoding = 'utf-8') for i in bestPriceShop.groups()]
+	return [(Fore.RED + i + ' not Found' + Fore.RESET) for i in ['URL', 'Shop', 'Coord']]
 
 # Main method of the script.
 def main():
@@ -235,6 +255,14 @@ def main():
 								memoItemData[scriptInfoOrder.MIN_CURRENT_PRICE] = itemBestPrice[item]
 								memoItemData[scriptInfoOrder.PROPORTION] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT])
 
+								# If proportion accuses a relevant offer, request current item coordinates/shop indo
+								coordInfo = ['---'] * 3
+								if memoItemData[scriptInfoOrder.PROPORTION] < interestThreshold:
+									coordInfo = requestItemCoordinates(item)
+
+								for i in range(len(coordInfo)):
+									memoItemData[i + scriptInfoOrder.ITEM_LINK] = coordInfo[i]
+
 								# Append the updated info on the gathered data list
 								gatheredInfo.append(memoItemData)
 
@@ -264,6 +292,10 @@ def main():
 
 									# Append the full item link too, for user offer checkup facility
 									newItemParsed.append(fullItemLink)
+
+									# If proportion accuses a interesting offer, get best sale shop coords/map/url
+									if newItemParsed[scriptInfoOrder.PROPORTION] < interestThreshold:
+										newItemParsed += requestItemCoordinates(item)
 
 									# Append a new information pack about a item
 									gatheredInfo.append(newItemParsed)
