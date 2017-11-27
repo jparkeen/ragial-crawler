@@ -164,13 +164,18 @@ def printTable(data, colnames, sep = 3):
 
 # Request a specific item's best sale coordinates, shop name and URL 
 def requestItemCoordinates(item):
+	errorValues = [(Fore.RED + i + ' not Found' + Fore.RESET) for i in ['URL', 'Shop', 'Coord']]
 	# Safe request delay
 	time.sleep(1)
-	request = Request(ragialItemMarketLink + serverName + '/' + item, headers = myCustomHeader)
-	if request:
-		bestPriceShop = RegexGetItemShopCoord.search(urlopen(request).read())
-		return [i.decode(encoding = 'utf-8') for i in bestPriceShop.groups()]
-	return [(Fore.RED + i + ' not Found' + Fore.RESET) for i in ['URL', 'Shop', 'Coord']]
+
+	try:
+		request = Request(ragialItemMarketLink + serverName + '/' + item, headers = myCustomHeader)
+		if request:
+			bestPriceShop = RegexGetItemShopCoord.search(urlopen(request).read())
+			return [i.decode(encoding = 'utf-8') for i in bestPriceShop.groups()]
+		return errorValues
+	except:
+		return errorValues
 
 # Main method of the script.
 def main():
@@ -261,7 +266,7 @@ def main():
 									coordInfo = requestItemCoordinates(item)
 
 								for i in range(len(coordInfo)):
-									memoItemData[i + scriptInfoOrder.ITEM_LINK] = coordInfo[i]
+									memoItemData[i + scriptInfoOrder.SHOP_URL] = coordInfo[i]
 
 								# Append the updated info on the gathered data list
 								gatheredInfo.append(memoItemData)
