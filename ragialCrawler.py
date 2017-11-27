@@ -163,7 +163,7 @@ def printTable(data, colnames, sep = 3):
 		counter += 1
 
 # Request a specific item's best sale coordinates, shop name and URL 
-def requestItemCoordinates(item):
+def _requestItemCoordinates(item):
 	errorValues = [(Fore.RED + i + ' not Found' + Fore.RESET) for i in ['URL', 'Shop', 'Coord']]
 	# Safe request delay
 	time.sleep(1)
@@ -176,6 +176,9 @@ def requestItemCoordinates(item):
 		return errorValues
 	except:
 		return errorValues
+
+def getItemCoord(item, prop):
+	return (['---'] * 3) if prop < interestThreshold else _requestItemCoordinates(item)
 
 # Main method of the script.
 def main():
@@ -261,10 +264,7 @@ def main():
 								memoItemData[scriptInfoOrder.PROPORTION] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT])
 
 								# If proportion accuses a relevant offer, request current item coordinates/shop indo
-								coordInfo = ['---'] * 3
-								if memoItemData[scriptInfoOrder.PROPORTION] < interestThreshold:
-									coordInfo = requestItemCoordinates(item)
-
+								coordInfo = getItemCoord(item, memoItemData[scriptInfoOrder.PROPORTION]) 
 								for i in range(len(coordInfo)):
 									memoItemData[i + scriptInfoOrder.SHOP_URL] = coordInfo[i]
 
@@ -299,8 +299,7 @@ def main():
 									newItemParsed.append(fullItemLink)
 
 									# If proportion accuses a interesting offer, get best sale shop coords/map/url
-									if newItemParsed[scriptInfoOrder.PROPORTION] < interestThreshold:
-										newItemParsed += requestItemCoordinates(item)
+									newItemParsed += getItemCoord(item, memoItemData[scriptInfoOrder.PROPORTION])
 
 									# Append a new information pack about a item
 									gatheredInfo.append(newItemParsed)
