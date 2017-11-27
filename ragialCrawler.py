@@ -32,11 +32,13 @@ serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume', but can be any query like 'card', 'box' etc.
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 dataRefreshTime = 300 # This time should be in seconds
-requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
+requestDelay = 3.0 # Delay, in seconds, of a delay between each request on Ragial.
 # IMPORTANT: low values (< 4.0s) tend to NOT work, resulting on a (Too many requests) 429 error.
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
-interestThreshold = 0.0 # Threshold of proportion, in order to print shop information alongside the item if prop is smaller than it
-colNames = ['P', 'Item Name', 'Best Price', 'Avg (7D)', 'Item Link'] # Output column names
+interestThreshold = -0.2 # Threshold of proportion, in order to print shop information alongside the item if prop is smaller than it
+removeQueryOnItemName = True # Remove the query at the item name, in order to output be more clean
+appendFullLink = False # Should the entire item URL be appended on the table, or just the ID code?
+colNames = ['P', 'Name', 'Best Price', 'Avg (7D)', 'Link', 'Coord', 'Shop Name'] # Output column names
 
 # -------------------- END OF SECTION (2)
 
@@ -61,7 +63,7 @@ class RagialValueOrder(IntEnum):
 	MINIMAL_PRICE = 8 # The best price found on Ragial
 	# The next values is the remaining prices, but they aren't useful for this scrip purpose.
 
-# 3.2 This enumerator indicates the order of the columns used on Pandas's dataframe to
+# 3.2 This enumerator indicates the order of the columns used on dataframe to
 # print the colected relevant data.
 class scriptInfoOrder(IntEnum):
 	PROPORTION = 0 # Proportion calculus is (CurrentBestPrice/ShortAveragePrice - 1)
@@ -70,9 +72,9 @@ class scriptInfoOrder(IntEnum):
 	AVG_SHORT = 3 # Average item price on a seven (7) days analysis
 	ITEM_LINK = 4 # Ragial correspondent item link
 	# Parameters valid only for items with proportion below interestThreshold
-	SHOP_URL = 5
+	SHOP_COORD = 5
 	SHOP_NAME = 6
-	SHOP_COORD = 7
+	SHOP_URL = 7
 
 # -------------------- END OF SECTION (3)
 
@@ -93,16 +95,18 @@ RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/
 RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
 # 4.6 Get item best price shop name, shop url and exact coordinates
 RegexGetItemShopCoord = re.compile(b'<a href="([^"]+)">\s*<[^>]+>\s*([^<]*)\s*</a>\s*<[^>]+>\s*([^<]*)\s*</div>')
-
 # -------------------- END OF SECTION (4)
 
 # -------------------- 5. SOURCE SECTION
 
 # Applies a Regex to find the item name on a given Raw HTML source code.
-# It does return 'Unknown Item Name' if Regex fails.
+# It does return 'UnknownItemName' if Regex fails.
 def getItemName(itemRawPageSource):
 	regMatch = RegexFindItemTitle.search(itemRawPageSource)
-	return regMatch.group(1) if regMatch else 'Unknown Item Name'
+	if regMatch:
+		itemName = regMatch.group(1)
+		return re.sub(query, '', itemName, flags = re.IGNORECASE) if removeQueryOnItemName else itemName
+	return '<unknown>'
 
 # Proportion of the Item Best Price and the Average Price (7 days analysis). Lower values (< 0)
 # represent best opportunities, while higher (> 0) represent overpriced/price inflated items.
@@ -135,14 +139,19 @@ def _setPropColor(val, text):
 	return ('\033[0;32m' if val < 0 else '\033[0;31m') + text + '\033[0m'
 
 # Print all gathered data
-def printTable(data, colnames, sep = 3):
+def printTable(data, colnames, sep = 2):
 	maxLens = [0] * len(scriptInfoOrder)
 
 	for d in data:
 		for i in range(len(scriptInfoOrder)):
-			maxLens[i] = max(maxLens[i], len(str(d[i])))
+			if i != scriptInfoOrder.PROPORTION:
+				maxLens[i] = max(maxLens[i], len(str(d[i])))
+			else:
+				maxLens[i] = max(maxLens[i], 1 + len(str(round(d[i] * 100, 2))))
 
-	print('#', end = ' ')
+	lenColNum = len(str(len(data)))
+
+	print('{text: <{fill}}'.format(text = '', fill = lenColNum - 1), end = '# ')
 	for i in range(len(colnames)):
 		maxLens[i] = max(maxLens[i], len(colnames[i]))
 		print(_rightAlign(maxLens[i], colnames[i], sep), end = ' ')
@@ -151,34 +160,35 @@ def printTable(data, colnames, sep = 3):
 	data.sort(key = itemgetter(scriptInfoOrder.PROPORTION), reverse = True)
 	counter = 0
 	for d in data:
-		print(counter,
+		print(_rightAlign(lenColNum, str(counter)),
 			_setPropColor(d[scriptInfoOrder.PROPORTION], _rightAlign(maxLens[scriptInfoOrder.PROPORTION], _propToPercent(d[scriptInfoOrder.PROPORTION]), sep)),
 			_rightAlign(maxLens[scriptInfoOrder.ITEM_NAME], d[scriptInfoOrder.ITEM_NAME], sep),
 			_rightAlign(maxLens[scriptInfoOrder.MIN_CURRENT_PRICE], d[scriptInfoOrder.MIN_CURRENT_PRICE], sep),
 			_rightAlign(maxLens[scriptInfoOrder.AVG_SHORT], d[scriptInfoOrder.AVG_SHORT], sep),
 			_rightAlign(maxLens[scriptInfoOrder.ITEM_LINK], d[scriptInfoOrder.ITEM_LINK], sep),
-			)
-		if d[scriptInfoOrder.PROPORTION] < interestThreshold:
-			print('@', d[scriptInfoOrder.SHOP_COORD], '-', d[scriptInfoOrder.SHOP_NAME], '-', d[scriptInfoOrder.SHOP_URL])
+			_rightAlign(maxLens[scriptInfoOrder.SHOP_COORD], d[scriptInfoOrder.SHOP_COORD], sep),
+			Fore.MAGENTA + _rightAlign(maxLens[scriptInfoOrder.SHOP_NAME], d[scriptInfoOrder.SHOP_NAME], sep) + Fore.RESET)
 		counter += 1
 
 # Request a specific item's best sale coordinates, shop name and URL 
 def _requestItemCoordinates(item):
 	errorValues = [(Fore.RED + i + ' not Found' + Fore.RESET) for i in ['URL', 'Shop', 'Coord']]
+	print(Fore.YELLOW + '\r[!] Requesting \'' + item + '\' shop details...', end = ' ')
+
 	# Safe request delay
-	time.sleep(1)
+	time.sleep(requestDelay)
 
 	try:
 		request = Request(ragialItemMarketLink + serverName + '/' + item, headers = myCustomHeader)
-		if request:
-			bestPriceShop = RegexGetItemShopCoord.search(urlopen(request).read())
-			return [i.decode(encoding = 'utf-8') for i in bestPriceShop.groups()]
+		bestPriceShop = RegexGetItemShopCoord.search(urlopen(request).read())
+		if bestPriceShop:
+			return reversed([i.decode(encoding = 'utf-8') for i in bestPriceShop.groups()])
 		return errorValues
 	except:
 		return errorValues
 
 def getItemCoord(item, prop):
-	return (['---'] * 3) if prop < interestThreshold else _requestItemCoordinates(item)
+	return (['---'] * 3 if prop >= interestThreshold else _requestItemCoordinates(item))
 
 # Main method of the script.
 def main():
@@ -251,7 +261,7 @@ def main():
 						for item in itemLinkID:
 							currentItemCounter += 1
 							if item in memoizationData:
-								print(Fore.YELLOW + '\'' + item + '\' found on memoization table, updating best price (' +
+								print(Fore.YELLOW + 'Updating \'' + item + '\' item cache (' +
 									str(currentItemCounter) + '/' + str(totalItemsFound) + ')...', end = ' ')
 								# Item is already on the memoization data structure, don't need to do another page request
 								# Fisrt, get the old data
@@ -266,7 +276,7 @@ def main():
 								# If proportion accuses a relevant offer, request current item coordinates/shop indo
 								coordInfo = getItemCoord(item, memoItemData[scriptInfoOrder.PROPORTION]) 
 								for i in range(len(coordInfo)):
-									memoItemData[i + scriptInfoOrder.SHOP_URL] = coordInfo[i]
+									memoItemData[i + len(scriptInfoOrder) - len(coordInfo)] = coordInfo[i]
 
 								# Append the updated info on the gathered data list
 								gatheredInfo.append(memoItemData)
@@ -295,11 +305,11 @@ def main():
 									# Get new item information as a list
 									newItemParsed = parseNewItem(itemTitle, itemRawPageSource)
 
-									# Append the full item link too, for user offer checkup facility
-									newItemParsed.append(fullItemLink)
+									# Append the item link too, for user offer checkup facility
+									newItemParsed.append(fullItemLink if appendFullLink else item)
 
 									# If proportion accuses a interesting offer, get best sale shop coords/map/url
-									newItemParsed += getItemCoord(item, memoItemData[scriptInfoOrder.PROPORTION])
+									newItemParsed += getItemCoord(item, newItemParsed[scriptInfoOrder.PROPORTION])
 
 									# Append a new information pack about a item
 									gatheredInfo.append(newItemParsed)
