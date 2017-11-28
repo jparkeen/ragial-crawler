@@ -155,11 +155,8 @@ def printTable(data, colnames, sep = 2):
 
 	lenColNum = len(str(len(data)))
 
-	print('{text: <{fill}}'.format(text = '', fill = lenColNum - 1), end = '# ')
 	for i in range(len(colnames)):
 		maxLens[i] = max(maxLens[i], len(colnames[i]))
-		print(_rightAlign(maxLens[i], colnames[i], sep), end = ' ')
-	print()
 
 	data.sort(key = itemgetter(scriptInfoOrder.PROPORTION), reverse = True)
 	counter = 0
@@ -173,6 +170,11 @@ def printTable(data, colnames, sep = 2):
 			_rightAlign(maxLens[scriptInfoOrder.SHOP_COORD], d[scriptInfoOrder.SHOP_COORD], sep),
 			Fore.MAGENTA + _rightAlign(maxLens[scriptInfoOrder.SHOP_NAME], d[scriptInfoOrder.SHOP_NAME][:(1 + maxShopNameDisplay)], sep) + Fore.RESET)
 		counter += 1
+
+	print('{text: <{fill}}'.format(text = '', fill = lenColNum - 1), end = '# ')
+	for i in range(len(colnames)):
+		print(_rightAlign(maxLens[i], colnames[i], sep), end = ' ')
+	print()
 
 # Request a specific item's best sale coordinates, shop name and URL 
 def _requestItemCoordinates(item):
