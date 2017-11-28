@@ -16,6 +16,7 @@ from colorama import init, Fore # For good terminal print aesthetics
 from enum import IntEnum # To keep the code more organized
 import time # Time, to put this daemon to sleep after a refresh
 import re # Regular expressions, to find interesting information
+from datetime import datetime
 
 # -------------------- END OF SECTION (1)
 
@@ -353,7 +354,9 @@ def main():
 		# -------------------- END OF SUBSECTION (5.4)
 
 		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
-		print(Fore.BLUE + 'Time til next data refresh: ' + str(dataRefreshTime) + 's')
+		print(Fore.BLUE + 'Time til next data refresh: ' + str(dataRefreshTime) + 's\t(last update: ' + 
+			datetime.now().strftime('%Y-%m-%d %H:%M:%S') +
+			datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') + ')')
 		time.sleep(dataRefreshTime)
 		print(Fore.YELLOW + 'Started to get brand-new information...')
 
