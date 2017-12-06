@@ -33,7 +33,7 @@ serverName = 'iRO-Odin' # Server name
 query = 'costume' # Query to search for. Default is 'costume', but can be any query like 'card', 'box' etc.
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 dataRefreshTime = 300 # This time should be in seconds
-requestDelay = 3.0 # Delay, in seconds, of a delay between each request on Ragial.
+requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
 # IMPORTANT: low values (< 4.0s) tend to NOT work, resulting on a (Too many requests) 429 error.
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
 interestThreshold = -0.2 # Threshold of proportion, in order to print shop information alongside the item if prop is smaller than it
