@@ -11,10 +11,14 @@ Just type on your terminal/console which follows:
 ```
 $ python3 ragialCrawler.py
 ```
+In case of missing colorama library type:
+```
+$ pip install colorama
+```
 
 # Functionallity
-- The program does not need any input. 
-- It is supposed to run until the user stops it manually (Ctrl+C or killing the process). 
+- The program does not need any input.
+- It is supposed to run until the user stops it manually (Ctrl+C or killing the process).
 - If the user ends the program, all memoized data will be lost, and must be regathered on the next session. This will not be 'fixed', as it prevents outdated memoized information.
 - It does update every 5 mins (300 seconds), in order to follow the Ragial update delay and to do not overcharge Ragial server with requests.
 - It does check all Ragial search pages, and get information only about items currently active on market.
