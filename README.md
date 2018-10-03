@@ -11,7 +11,7 @@ Just type on your terminal/console which follows:
 ```
 $ python3 ragialCrawler.py
 ```
-In case of missing colorama library type:
+In case of missing 'colorama' library type:
 ```
 $ pip install colorama
 ```
