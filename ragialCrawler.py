@@ -27,15 +27,17 @@ from datetime import datetime
 # thinked to be this dynamic. This means that deeper modifications on this script
 # can be necessary, depending on the parameters set on this section.
 
-ragialSearchLink = 'http://ragi.al/search/' # Link to Ragial search section WITH A ENDING SLASH ('/')
-ragialItemMarketLink = 'http://ragi.al/live_reqo/' # Link of Ragial item shops info WITH A ENDING SLASH
-serverName = 'iRO-Odin' # Server name
+ragialSearchLink = 'http://ragial.org/search/' # Link to Ragial search section WITH A ENDING SLASH ('/')http://ragi.al/search/iRO-Renewal/
+ragialItemMarketLink = 'http://ragial.org/shop/' # Link of Ragial item shops info WITH A ENDING SLASH
+serverName = 'iRO-Renewal' # Server name
 query = 'costume' # Query to search for. Default is 'costume', but can be any query like 'card', 'box' etc.
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
 dataRefreshTime = 300 # This time should be in seconds
 requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
 # IMPORTANT: low values (< 4.0s) tend to NOT work, resulting on a (Too many requests) 429 error.
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
+currentPage = 0
+
 interestThreshold = -0.2 # Threshold of proportion, in order to print shop information alongside the item if prop is smaller than it
 removeQueryOnItemName = True # Remove the query at the item name, in order to output be more clean
 appendFullLink = False # Should the entire item URL be appended on the table, or just the ID code?
@@ -83,9 +85,9 @@ class scriptInfoOrder(IntEnum):
 # -------------------- 4. REGULAR EXPRESSIONS
 
 # 4.0 Get item URL and it's status (tagged as 'activate_tr' by Ragial for items currently on market)
-RegexFindItemUrlWithStatus = re.compile(r'(?<=<a href="http://ragi\.al/item/' + serverName + r'/)([^"]+)"\s*class\s*=\s*"([^"]+)"\s*>')
+RegexFindItemUrlWithStatus = re.compile(r'(?<=<a href="http://ragial.org/item/' + serverName + r'/)([^"]+)"\s*class\s*=\s*"([^"]+)"\s*>')
 # 4.1 Regex to search for all the item links, active or not on the market
-RegexFindItemURLAndBestPrice = re.compile(r'<a href="http://ragi\.al/item/' + serverName + r'/([^"]+)">([0-9,]+)z</a>')
+RegexFindItemURLAndBestPrice = re.compile(r'<a href="http://ragial.org/item/' + serverName + r'/([^"]+)">([0-9,]+)z</a>')
 # 4.2 Regex to search for item's title/name
 RegexFindItemTitle = re.compile(r'<title>\s*Ragial\s*-\s*([^-]+)\s*-\s*' + serverName + r'\s*</title>')
 # 4.3 Regex to search for item prices/standard devitations/related values
@@ -93,6 +95,7 @@ RegexFindItemPrice = re.compile(r'([0-9,]+)z')
 # 4.4 Regex to detect for Ragial's next page link on search HTML source code (capturing the exact
 # link is unnecessary, because these follows a very simple predictable pattern).
 RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/' + query + '/' + r'\w">Next</a>')
+#RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/' + query + '/' + r'\w">Next</a>')
 # 4.5 Detect everything that is not a base 10 number
 RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
 # 4.6 Get item best price shop name, shop url and exact coordinates
@@ -176,7 +179,7 @@ def printTable(data, colnames, sep = 2):
 		print(_rightAlign(maxLens[i], colnames[i], sep), end = ' ')
 	print()
 
-# Request a specific item's best sale coordinates, shop name and URL 
+# Request a specific item's best sale coordinates, shop name and URL
 def _requestItemCoordinates(item):
 	errorValues = [(Fore.RED + i + ' not Found' + Fore.RESET) for i in ['URL', 'Shop', 'Coord']]
 	print(Fore.YELLOW + '\r[!] Requesting \'' + item + '\' shop details...', end = ' ')
@@ -202,9 +205,11 @@ def main():
 	init(autoreset = True)
 
 	# Welcome text
-	print(Fore.BLUE + 'Welcome! I\'m RagialCrawler. First, I\'ll try to collect everything I can from Ragial, if possible. ' +
-		'I\'m supposed to work by myself and take care of everything alone while I\'m still active. ' +
-		'So, from now and so on, you can just chill! ;)')
+	print(Fore.BLUE + 'Welcome! I\'m RagialCrawler. First, I\'ll try to collect\n ' +
+	 				  'everything I can from Ragial, if possible. I\'m supposed\n ' +
+					  'to work by myself and take care of everything alone while I\'m \n' +
+					  'still active. So, from now and so on, you can just chill! ;) \n')
+
 	print(Fore.YELLOW + 'Selected search query: \'' + query + '\'')
 
 	# Memoization base, used to speed up things later.
@@ -215,6 +220,7 @@ def main():
 		# -------------------- 5.1 VARIABLE SETUP (MODIFY ONLY IF YOU ARE SURE WHAT IS GOING ON)
 		pageIndex = 0
 		hasNextPage = True
+
 		gatheredInfo = []
 		# -------------------- END OF SUBSECTION (5.1)
 
@@ -223,6 +229,7 @@ def main():
 			hasNextPage = None
 			rawPageSource = str()
 			pageIndex += 1
+
 
 			# -------------------- 5.2 REQUEST RAGIAL HTML SOURCE
 			try:
@@ -280,7 +287,7 @@ def main():
 								memoItemData[scriptInfoOrder.PROPORTION] = calcProportion(itemBestPrice[item], memoItemData[scriptInfoOrder.AVG_SHORT])
 
 								# If proportion accuses a relevant offer, request current item coordinates/shop indo
-								coordInfo = getItemCoord(item, memoItemData[scriptInfoOrder.PROPORTION]) 
+								coordInfo = getItemCoord(item, memoItemData[scriptInfoOrder.PROPORTION])
 								for i in range(len(coordInfo)):
 									memoItemData[i + len(scriptInfoOrder) - len(coordInfo)] = coordInfo[i]
 
@@ -299,7 +306,7 @@ def main():
 
 								try:
 									# Mount full item link and make a requisition to Ragial server
-									fullItemLink = 'http://ragi.al/item/' + serverName + '/' + item
+									fullItemLink = 'http://ragial.org/item/' + serverName + '/' + item
 									itemRequest = Request(fullItemLink, headers = myCustomHeader)
 
 									# Get page HTML source code
@@ -356,7 +363,7 @@ def main():
 		# -------------------- END OF SUBSECTION (5.4)
 
 		# Make the program 'sleep' for some minutes, to wait Ragial update it's info
-		print(Fore.BLUE + 'Time til next data refresh: ' + str(dataRefreshTime) + 's (last update: ' + 
+		print(Fore.BLUE + 'Time til next data refresh: ' + str(dataRefreshTime) + 's (last update: ' +
 			'system: ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S') +
 			'\tUTF: ' + datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') + ')')
 		time.sleep(dataRefreshTime)
