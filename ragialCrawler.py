@@ -32,12 +32,10 @@ ragialItemMarketLink = 'http://ragial.org/shop/' # Link of Ragial item shops inf
 serverName = 'iRO-Renewal' # Server name
 query = 'costume' # Query to search for. Default is 'costume', but can be any query like 'card', 'box' etc.
 myCustomHeader = {'User-Agent': 'Mozilla/5.0'}
-dataRefreshTime = 300 # This time should be in seconds
-requestDelay = 4.0 # Delay, in seconds, of a delay between each request on Ragial.
+dataRefreshTime = 120 # This time should be in seconds
+requestDelay = 5.0 # Delay, in seconds, of a delay between each request on Ragial.
 # IMPORTANT: low values (< 4.0s) tend to NOT work, resulting on a (Too many requests) 429 error.
 maxRagialSearchPages = 99 # Max number of search result pages that script must goes into. Numbers smaller than 1 is nonsense.
-currentPage = 0
-
 interestThreshold = -0.2 # Threshold of proportion, in order to print shop information alongside the item if prop is smaller than it
 removeQueryOnItemName = True # Remove the query at the item name, in order to output be more clean
 appendFullLink = False # Should the entire item URL be appended on the table, or just the ID code?
@@ -99,6 +97,23 @@ RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/
 # 4.5 Detect everything that is not a base 10 number
 RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
 # 4.6 Get item best price shop name, shop url and exact coordinates
+
+re1='(\\/)'	# Any Single Character 1
+re2='(navi)'	# Word 1
+re3='( )'	# Any Single Character 2
+re4='((?:[a-z][a-z]+))'	# Word 2
+re5='( )'	# Any Single Character 3
+re6='(\\d+)'	# Integer Number 1
+re7='(\\/)'	# Any Single Character 4
+re8='(\\d+)'	# Integer Number 2
+
+# re1+re2+re3+re4+re5+re6+re7+re8+re9+re10+re11
+# b'<a href="(\\/)(n)(a)(v)(i)(\\s+)((?:[a-z][a-z]+))(\\s+)(\\d+)(\\/)(\\d+)</div>
+# b'<a href="([^"]+)">\s*<[^>]+>\s*([^<]*)\s*</a>\s*<[^>]+>\s*([^<]*)\s*</div>'
+
+
+
+
 RegexGetItemShopCoord = re.compile(b'<a href="([^"]+)">\s*<[^>]+>\s*([^<]*)\s*</a>\s*<[^>]+>\s*([^<]*)\s*</div>')
 # -------------------- END OF SECTION (4)
 
