@@ -99,13 +99,6 @@ RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
 # 4.6 Get item best price shop name, shop url and exact coordinates
 
 
-# re1+re2+re3+re4+re5+re6+re7+re8+re9+re10+re11
-# b'<a href="(\\/)(n)(a)(v)(i)(\\s+)((?:[a-z][a-z]+))(\\s+)(\\d+)(\\/)(\\d+)</div>
-# b'<a href="([^"]+)">\s*<[^>]+>\s*([^<]*)\s*</a>\s*<[^>]+>\s*([^<]*)\s*</div>'
-
-
-
-
 RegexGetItemShopCoord = re.compile(b'<a href="([^"]+)">\s*<[^>]+>\s*([^<]*)\s*</a>\s*<[^>]+>\s*([^<]*)\s*</div>')
 # -------------------- END OF SECTION (4)
 
