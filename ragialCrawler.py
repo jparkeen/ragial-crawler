@@ -98,14 +98,6 @@ RegexFindNextPage = re.compile(r'<a href="' + ragialSearchLink + serverName + '/
 RegexOnlyAllowNumbers = re.compile(r'[^0-9]')
 # 4.6 Get item best price shop name, shop url and exact coordinates
 
-re1='(\\/)'	# Any Single Character 1
-re2='(navi)'	# Word 1
-re3='( )'	# Any Single Character 2
-re4='((?:[a-z][a-z]+))'	# Word 2
-re5='( )'	# Any Single Character 3
-re6='(\\d+)'	# Integer Number 1
-re7='(\\/)'	# Any Single Character 4
-re8='(\\d+)'	# Integer Number 2
 
 # re1+re2+re3+re4+re5+re6+re7+re8+re9+re10+re11
 # b'<a href="(\\/)(n)(a)(v)(i)(\\s+)((?:[a-z][a-z]+))(\\s+)(\\d+)(\\/)(\\d+)</div>
