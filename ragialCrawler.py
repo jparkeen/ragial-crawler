@@ -199,6 +199,13 @@ def _requestItemCoordinates(item):
 def getItemCoord(item, prop):
 	return (['---'] * 3 if prop >= interestThreshold else _requestItemCoordinates(item))
 
+############################################
+def getItemCoord(item, prop, id):
+	pass
+def getShopCoord(item, prop, coords):
+	pass
+############################################
+
 # Main method of the script.
 def main():
 	# Init colorama
