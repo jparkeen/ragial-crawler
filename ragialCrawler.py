@@ -200,9 +200,14 @@ def getItemCoord(item, prop):
 	return (['---'] * 3 if prop >= interestThreshold else _requestItemCoordinates(item))
 
 ############################################
+# abstract class for future function?
 def getItemCoord(item, prop, id):
 	pass
 def getShopCoord(item, prop, coords):
+	pass
+def getItemId(item, id):
+	pass
+def getRequestItemCoord(item,coords, id):
 	pass
 ############################################
 
