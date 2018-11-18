@@ -201,14 +201,14 @@ def getItemCoord(item, prop):
 
 ############################################
 # abstract class for future function?
-def getItemCoord(item, prop, id):
-	pass
-def getShopCoord(item, prop, coords):
-	pass
-def getItemId(item, id):
-	pass
-def getRequestItemCoord(item,coords, id):
-	pass
+# def getItemCoord(item, prop, id):
+# 	pass
+# def getShopCoord(item, prop, coords):
+# 	pass
+# def getItemId(item, id):
+# 	pass
+# def getRequestItemCoord(item,coords, id):
+# 	pass
 ############################################
 
 # Main method of the script.
